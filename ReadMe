@@ -46,7 +46,7 @@ Standard Modules: none
 Nonstandard Modules: 
 
 	Rosetta 0.37
-	DBI 1.43
+	SQL::Routine 0.46 (This explicit dependency is for Rosetta-Extensions-0.11 only.)	DBI 1.43
 	various DBI Driver (DBD) modules
 
 SUPPORT

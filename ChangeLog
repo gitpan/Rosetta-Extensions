@@ -1,3 +1,46 @@
+2004-10-30   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.11.
+
+	* New code file versions are: Generic.pm v0.08, SQLBuilder.pm v0.11.
+
+	* This is a snapshot release whose sole purpose is to maintain
+	compatability with SQL::Routine v0.46; most changes are in SQLBuilder.pm,
+	and a few are in Generic.pm; en.pm has no changes.
+
+	* Established a temporary explicit external dependency on SQL::Routine
+	v0.46, that will be removed in the next release.  The external dependency
+	on Rosetta v0.37 was not incremented, since 'Rosetta' does not require any
+	compatability updates.
+
+	* These are the main relevant compatability changes (see the SQL::Routine
+	change log for more details): 1. A lot of SRT Node-ref attributes were
+	renamed to start with "pp_"; all of the changes to Generic.pm related to
+	this.  2. The 'view_type' enumerated list has been mostly changed.  3. The
+	new 'view_compound_elem' Node type is now used to specify the compound
+	query operands.  4. The 'domain' Node has been split up into
+	'scalar_data_type' and 'scalar_domain'.  5. There is now support for
+	several collection data types such as rows and arrays.  6. Table and view
+	primary column definitions are now handled by a row collection data type. 
+	7. Attributes and variables with 'col' in their names now have 'field' in
+	their names instead; likewise, 'ind' was renamed to 'index'. 8. The 'view'
+	attribute 'match_all_cols' is gone; setting the view type to 'ALIAS' has
+	the same effect, but the build_query_select_list() code is a lot simpler. 
+	9. The SELECT and INSERT statements are now defined to fetch or store
+	entire rows as single units, from and to row variables.  10. Each view
+	source can be an arg or var, not just a table or view; larger update to
+	build_query_query_expr_body() to handle this.
+
+	* Renamed SQLBuilder.pm method build_expr_data_type_or_domain_name() to 
+	build_expr_scalar_data_type_or_domain_name().
+
+	* The separate build_identifier_fake_view_src_col() method is gone, with
+	its functionality now built in to build_identifier_view_src_field().
+
+	* Added new utility method find_scalar_domain_for_row_domain_field().
+
+	* Minor documentation updates in Extensions.pod.
+
 2004-10-26   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.10.
@@ -15,7 +58,7 @@
 	* Corresponding to changes in SQL::Routine (v0.44, v0.45) and the Rosetta
 	core (v0.37), about 2/3 of the code in Generic.pm was rewritten; the file
 	is also about 1/3 larger.  See the change logs of those dependent releases
-	to explain most of the rewrites. The main relevant changes are:  1.
+	to explain most of the rewrites.  The main relevant changes are:  1.
 	'command' SRT Nodes no longer exist; their functionality is replaced by the
 	built-in standard routines that can be called by user-defined routines;
 	prepare() now only takes a 'routine' SRT Node as its argument.  2. All

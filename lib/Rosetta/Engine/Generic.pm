@@ -10,11 +10,12 @@ package Rosetta::Engine::Generic;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use Rosetta '0.37';
+use SQL::Routine '0.46'; # This explicit dependency is for Rosetta-Extensions-0.11 only.
 use DBI '1.43';
-use Rosetta::Utility::SQLBuilder '0.10';
+use Rosetta::Utility::SQLBuilder '0.11';
 
 use base qw( Rosetta::Engine );
 
@@ -29,8 +30,9 @@ Standard Modules: I<none>
 Nonstandard Modules: 
 
 	Rosetta 0.37
+	SQL::Routine 0.46 (This explicit dependency is for Rosetta-Extensions-0.11 only.)
 	DBI 1.43 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.10
+	Rosetta::Utility::SQLBuilder 0.11
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -277,7 +279,7 @@ sub prepare {
 		$engine->{$PROP_ENV_PERL_RTN_STRS} ||= {}; # Ditto.
 	}
 
-	if( $routine_node->get_node_ref_attribute( 'p_routine' ) ) {
+	if( $routine_node->get_node_ref_attribute( 'pp_routine' ) ) {
 		# Only externally visible routines can be externally invoked; nested routines are not.
 		$engine->_throw_error_message( 'ROS_G_NEST_RTN_NO_INVOK', { 'RNAME' => $routine_node } );
 	}
@@ -364,7 +366,7 @@ __EOL
 __EOL
 	}
 
-	if( my $schema_node = $routine_node->get_node_ref_attribute( 'schema' ) ) {
+	if( my $schema_node = $routine_node->get_node_ref_attribute( 'pp_schema' ) ) {
 		# This new Perl routine is to CALL a database stored procedure/function.
 #		$routine_str .= $engine->build_perl_call_to_db_rtn( $interface, $routine_node );
 	} else {
@@ -514,7 +516,7 @@ sub build_perl_expr {
 			@{$expr_node->get_child_nodes()} ).')' );
 	} else {
 		if( my $valf_literal = $expr_node->get_literal_attribute( 'valf_literal' ) ) {
-			#my $domain_node = $expr_node->get_node_ref_attribute( 'domain' );
+			#my $domain_node = $expr_node->get_node_ref_attribute( 'scalar_domain' );
 			return( $engine->build_perl_literal_cstr( $valf_literal ) );
 		} elsif( my $routine_cxt_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_cxt' ) ) {
 			return( $engine->build_perl_identifier_rtn_var( $routine_cxt_node ) );
@@ -643,17 +645,17 @@ sub build_perl_identifier_element {
 sub build_perl_identifier_rtn {
 	my ($engine, $routine_node, $debug) = @_;
 	my $routine_name = $engine->build_perl_identifier_element( $routine_node, $debug );
-	if( my $schema_node = $routine_node->get_node_ref_attribute( 'schema' ) ) {
+	if( my $schema_node = $routine_node->get_node_ref_attribute( 'pp_schema' ) ) {
 		my $schema_name = $engine->build_perl_identifier_element( $schema_node, $debug );
-		my $cat_node = $schema_node->get_node_ref_attribute( 'catalog' );
+		my $cat_node = $schema_node->get_node_ref_attribute( 'pp_catalog' );
 		my $cat_name = $engine->build_perl_identifier_element( $cat_node, $debug );
 		return( 'cat_'.$cat_name.'_'.$schema_name.'_'.$routine_name )
 	}
-	if( my $app_node = $routine_node->get_node_ref_attribute( 'application' ) ) {
+	if( my $app_node = $routine_node->get_node_ref_attribute( 'pp_application' ) ) {
 		my $app_name = $engine->build_perl_identifier_element( $app_node, $debug );
 		return( 'app_'.$app_name.'_'.$routine_name )
 	}
-	if( my $p_routine_node = $routine_node->get_node_ref_attribute( 'p_routine' ) ) {
+	if( my $p_routine_node = $routine_node->get_node_ref_attribute( 'pp_routine' ) ) {
 		return( $engine->build_perl_identifier_rtn( $p_routine_node, $debug ).'_'.$routine_name )
 	}
 	# We should never get here.
@@ -919,7 +921,7 @@ sub srtn_catalog_list {
 			my $cat_bp_node = $env_eng->make_srt_node( 'catalog', $container );
 			$cat_bp_node->set_literal_attribute( 'name', $dbi_data_source );
 			my $cat_link_bp_node = $env_eng->make_child_srt_node( 
-				'catalog_link', $app_bp_node, 'application' );
+				'catalog_link', $app_bp_node, 'pp_application' );
 			$cat_link_bp_node->set_literal_attribute( 'name', $dbi_data_source );
 			$cat_link_bp_node->set_node_ref_attribute( 'target', $cat_bp_node );
 			my $cat_inst_node = $env_eng->make_srt_node( 'catalog_instance', $container );
@@ -935,7 +937,7 @@ sub srtn_catalog_list {
 			}
 			$cat_inst_node->set_literal_attribute( 'local_dsn', $local_dsn );
 			my $cat_link_inst_node = $env_eng->make_child_srt_node( 
-				'catalog_link_instance', $app_inst_node, 'application' );
+				'catalog_link_instance', $app_inst_node, 'pp_application' );
 			$cat_link_inst_node->set_node_ref_attribute( 'product', $dlp_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'unrealized', $cat_link_bp_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'target', $cat_inst_node );
@@ -1046,7 +1048,7 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 		# be using (may be several), and a node belonging to said app representing a 
 		# yet-unrealized data connection from the app to the db.
 		my $catalog_bp = make_a_node( 'catalog', $model );
-		my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'application' );
+		my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'pp_application' );
 		$app_cl->set_literal_attribute( 'name', 'big_data' );
 		$app_cl->set_node_ref_attribute( 'target', $catalog_bp );
 
@@ -1055,9 +1057,9 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 		# application-stored queries or routines that would run against the db.
 
 		# As an example of the above, a command to 'connect' to the database.
-		my $open_cmd = make_a_child_node( 'command', $app_bp, 'application' );
+		my $open_cmd = make_a_child_node( 'command', $app_bp, 'pp_application' );
 		$open_cmd->set_enumerated_attribute( 'standard_routine', 'CATALOG_OPEN' );
-		my $open_cmd_a1 = make_a_child_node( 'command_arg', $open_cmd, 'command' );
+		my $open_cmd_a1 = make_a_child_node( 'command_arg', $open_cmd, 'pp_command' );
 		$open_cmd_a1->set_node_ref_attribute( 'catalog_link', $app_cl );
 
 		# Now create the node that says we will use Rosetta::Engine::Generic as 
@@ -1081,7 +1083,7 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 		# Now realize the data connection to run from the app instance to the catalog instance.
 		# This is where we say that the app running right now (we) will use Rosetta::Engine::Generic.
 		# Each application instance may only have 1 realization of the same unrealized link.
-		my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'application' );
+		my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'pp_application' );
 		$test_app_cl->set_node_ref_attribute( 'product', $dlp );
 		$test_app_cl->set_node_ref_attribute( 'unrealized', $app_cl );
 		$test_app_cl->set_node_ref_attribute( 'target', $test_db );
@@ -1420,6 +1422,6 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 =head1 SEE ALSO
 
 perl(1), Rosetta, SQL::Routine, Locale::KeyedText,
-Rosetta::Utility::SQLBuilder, DBI.
+Rosetta::Utility::SQLBuilder, Rosetta::Utility::SQLParser, DBI.
 
 =cut
