@@ -10,11 +10,11 @@ package Rosetta::Engine::Generic;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
-use Rosetta 0.35;
-use DBI 1.42;
-use Rosetta::Utility::SQLBuilder 0.08;
+use Rosetta 0.36;
+use DBI 1.43;
+use Rosetta::Utility::SQLBuilder 0.09;
 
 use base qw( Rosetta::Engine );
 
@@ -28,9 +28,9 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.35
-	DBI 1.42 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.08
+	Rosetta 0.36
+	DBI 1.43 (highest version recommended)
+	Rosetta::Utility::SQLBuilder 0.09
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -83,8 +83,8 @@ practical way of suggesting improvements to the standard version.
 my $PROP_CONN_PREP_ECO = 'conn_prep_eco'; # hash (str,lit) - For Connection Prep Intfs - 
 	# These are the Engine Config Opts that apply to all Connection Intfs made from this 
 	# Conn Prep; they will override any Conn's execute(ROUTINE_ARGS) values.
-	# They are copied here from the SSM Nodes partly for speed and partly to 
-	# prevent tampering during an open Connection due to modifying the original SSM.
+	# They are copied here from the SRT Nodes partly for speed and partly to 
+	# prevent tampering during an open Connection due to modifying the original SRT.
 	# Note: At this moment there is no $PROP_ENV*ECO, as that would seem to be 
 	# counter-productive; eg, conflicting Env|Conn.features() values.
 my $PROP_CONN_ECO = 'conn_eco'; # hash (str,lit) - For Connection Intfs - 
@@ -110,14 +110,14 @@ my $INTFTP_ERROR       = 'Error'; # What is returned if an error happens, in pla
 my $INTFTP_TOMBSTONE   = 'Tombstone'; # What is returned when execute() destroys an Interface
 my $INTFTP_APPLICATION = 'Application'; # What you get when you create an Interface out of any context
 	# This type is the root of an Interface tree; when you create one, you provide an 
-	# "application_instance" SQL::SyntaxModel Node; that provides the necessary context for 
+	# "application_instance" SQL::Routine Node; that provides the necessary context for 
 	# subsequent "command" or "routine" Nodes you pass to any child Intf's "prepare" method.
 my $INTFTP_PREPARATION = 'Preparation'; # That which is returned by the 'prepare()' method
 my $INTFTP_LITERAL     = 'Literal'; # Result of execution that isn't one of the following, like an IUD
 	# This type can be returned as the grand-child for any of [Appl, Envi, Conn, Tran].
 	# This type is returned by the execute() of any Command that doesn't return one of 
 	# the following 4 context INTFs, except for those that return Cursor.
-	# Any commands that stuff new Nodes in the current SSM Container, such as the 
+	# Any commands that stuff new Nodes in the current SRT Container, such as the 
 	# *_LIST or *_INFO or *_CLONE Commands, will return a new Node ref or list as the payload.
 	# Any commands that simply do a yes/no test, such as *_VERIFY, or DB_PING, 
 	# simply have a boolean payload.
@@ -294,7 +294,7 @@ sub prepare {
 				{ 'CLASS' => ref($engine), 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
 		}
 	} else {
-		$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_SSM_NODE', 
+		$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_SRT_NODE', 
 			{ 'CLASS' => ref($engine), 'ITYPE' => $intf_type, 'NTYPE' => $node_type } );
 	}
 }
@@ -409,22 +409,20 @@ sub install_dbi_driver {
 
 ######################################################################
 
-sub make_ssm_node {
+sub make_srt_node {
 	my ($engine, $node_type, $container) = @_;
 	my $node = $container->new_node( $node_type );
 	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
 	$node->put_in_container( $container );
-	$node->add_reciprocal_links();
 	return( $node );
 }
 
-sub make_child_ssm_node {
+sub make_child_srt_node {
 	my ($engine, $node_type, $pp_node, $pp_attr) = @_;
 	my $container = $pp_node->get_container();
 	my $node = $pp_node->new_node( $node_type );
 	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
 	$node->put_in_container( $container );
-	$node->add_reciprocal_links();
 	$node->set_node_ref_attribute( $pp_attr, $pp_node );
 	$node->set_parent_node_attribute_name( $pp_attr );
 	return( $node );
@@ -436,7 +434,7 @@ sub prepare_cmd_db_list {
 	my ($env_eng, $env_intf, $command_bp_node) = @_;
 
 	my $container = $command_bp_node->get_container();
-	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_ssm_node();
+	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_srt_node();
 	my $app_bp_node = $app_inst_node->get_node_ref_attribute( 'blueprint' );
 
 	my $routine = sub {
@@ -445,7 +443,7 @@ sub prepare_cmd_db_list {
 
 		my @cat_link_inst_nodes = ();
 
-		my $dlp_node = $env_intf->get_ssm_node(); # A 'data_link_product' Node (repr ourself).
+		my $dlp_node = $env_intf->get_srt_node(); # A 'data_link_product' Node (repr ourself).
 		foreach my $dbi_driver (DBI->available_drivers()) {
 			# Tested $dbi_driver values on my system are (space-delimited):
 			# [DBM ExampleP File Proxy SQLite Sponge mysql]; they are ready to use as is.
@@ -454,11 +452,11 @@ sub prepare_cmd_db_list {
 			$dbi_driver eq 'ExampleP' and next; # Skip useless DBI-bundled driver.
 			$dbi_driver eq 'File' and next; # Skip useless DBI-bundled driver.
 			# If we get here, then the $dbi_driver is something "normal".
-			my $dsp_node = $env_eng->make_ssm_node( 'data_storage_product', $container );
+			my $dsp_node = $env_eng->make_srt_node( 'data_storage_product', $container );
 			$dsp_node->set_literal_attribute( 'product_code', $dbi_driver );
 			if( $dbi_driver eq 'Sponge' ) {
 				$dsp_node->set_literal_attribute( 'is_memory_based', 1 ); # common setting for DBDs
-			} elsif( $dbi_driver eq 'DBM' or $dbi_driver eq 'SQLite' ) {
+			} elsif( $dbi_driver eq 'DBM' or $dbi_driver eq 'SQLite2' or $dbi_driver eq 'SQLite' ) {
 				$dsp_node->set_literal_attribute( 'is_file_based', 1 ); # common setting for DBDs
 			} elsif( $dbi_driver eq 'mysql' ) {
 				$dsp_node->set_literal_attribute( 'is_local_proc', 1 ); # common setting for DBDs
@@ -473,12 +471,12 @@ sub prepare_cmd_db_list {
 				#dbi:DriverName:database_name@hostname:port
 				#dbi:DriverName:database=database_name;host=hostname;port=port 
 				my (undef, undef, $local_dsn) = split( ':', $dbi_data_source );
-				my $cat_bp_node = $env_eng->make_ssm_node( 'catalog', $container );
-				my $cat_link_bp_node = $env_eng->make_child_ssm_node( 
+				my $cat_bp_node = $env_eng->make_srt_node( 'catalog', $container );
+				my $cat_link_bp_node = $env_eng->make_child_srt_node( 
 					'catalog_link', $app_bp_node, 'application' );
 				$cat_link_bp_node->set_literal_attribute( 'name', $dbi_data_source );
 				$cat_link_bp_node->set_node_ref_attribute( 'target', $cat_bp_node );
-				my $cat_inst_node = $env_eng->make_ssm_node( 'catalog_instance', $container );
+				my $cat_inst_node = $env_eng->make_srt_node( 'catalog_instance', $container );
 				$cat_inst_node->set_node_ref_attribute( 'product', $dsp_node );
 				$cat_inst_node->set_node_ref_attribute( 'blueprint', $cat_bp_node );
 				$cat_inst_node->set_literal_attribute( 'name', $dbi_data_source );
@@ -490,7 +488,7 @@ sub prepare_cmd_db_list {
 					$cat_inst_node->set_literal_attribute( 'file_path', $file_path );
 				}
 				$cat_inst_node->set_literal_attribute( 'local_dsn', $local_dsn );
-				my $cat_link_inst_node = $env_eng->make_child_ssm_node( 
+				my $cat_link_inst_node = $env_eng->make_child_srt_node( 
 					'catalog_link_instance', $app_inst_node, 'application' );
 				$cat_link_inst_node->set_node_ref_attribute( 'product', $dlp_node );
 				$cat_link_inst_node->set_node_ref_attribute( 'unrealized', $cat_link_bp_node );
@@ -527,11 +525,11 @@ sub prepare_cmd_db_info {
 sub prepare_cmd_db_open {
 	my ($env_eng, $env_intf, $command_bp_node) = @_;
 
-	# This block gathers info from SSM which describes db connection we are to open.
+	# This block gathers info from SRT which describes db connection we are to open.
 	my $container = $command_bp_node->get_container();
 	my $cat_link_bp_node = $command_bp_node->get_child_nodes( 'command_arg' 
 		)->[0]->get_node_ref_attribute( 'catalog_link' );
-	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_ssm_node();
+	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_srt_node();
 	my $cat_link_inst_node = undef;
 	foreach my $link (@{$app_inst_node->get_child_nodes( 'catalog_link_instance' )}) {
 		if( $link->get_node_ref_attribute( 'unrealized' ) eq $cat_link_bp_node ) {
@@ -683,85 +681,100 @@ This is an example showing about the minimum amount of code required to go from
 nothing to an open database connection using Rosetta::Engine::Generic, or any
 standard Rosetta Engine module for that matter (about 40 lines of code).
 
-	# First load our basic requirements, Rosetta and SQL::SyntaxModel.
+	# First load our basic requirements, Rosetta and SQL::Routine.
 	use Rosetta;
 
-	# Now create a schema model we will use everywhere.
-	my $model = SQL::SyntaxModel->new_container();
+	eval {
+		# Now create a schema model we will use everywhere.
+		my $model = SQL::Routine->new_container();
 
-	# Now create the model root node representing the app running right now / that we are.
-	my $app_bp = make_a_node( 'application', $model );
+		# Now create the model root node representing the app running right now / that we are.
+		my $app_bp = make_a_node( 'application', $model );
 
-	# Define an application instance, for testers, which is the app running right now.
-	my $test_app = make_a_node( 'application_instance', $model );
-	$test_app->set_node_ref_attribute( 'blueprint', $app_bp );
+		# Define an application instance, for testers, which is the app running right now.
+		my $test_app = make_a_node( 'application_instance', $model );
+		$test_app->set_node_ref_attribute( 'blueprint', $app_bp );
 
-	# Now create a new Rosetta Interface tree that will mediate db access for us.
-	my $application = Rosetta->new_application( $test_app );
+		# Now create a new Rosetta Interface tree that will mediate db access for us.
+		my $application = Rosetta->new_application( $test_app );
 
-	# Now create the model root node that represents a database/catalog we will 
-	# be using (may be several), and a node belonging to said app representing a 
-	# yet-unrealized data connection from the app to the db.
-	my $catalog_bp = make_a_node( 'catalog', $model );
-	my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'application' );
-	$app_cl->set_literal_attribute( 'name', 'big_data' );
-	$app_cl->set_node_ref_attribute( 'target', $catalog_bp );
+		# Now create the model root node that represents a database/catalog we will 
+		# be using (may be several), and a node belonging to said app representing a 
+		# yet-unrealized data connection from the app to the db.
+		my $catalog_bp = make_a_node( 'catalog', $model );
+		my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'application' );
+		$app_cl->set_literal_attribute( 'name', 'big_data' );
+		$app_cl->set_node_ref_attribute( 'target', $catalog_bp );
 
-	# ... Next, probably (or you can do it later), make and stuff a whole bunch 
-	# of nodes in the model that describe the database/catalog schema and any 
-	# application-stored queries or routines that would run against the db.
+		# ... Next, probably (or you can do it later), make and stuff a whole bunch 
+		# of nodes in the model that describe the database/catalog schema and any 
+		# application-stored queries or routines that would run against the db.
 
-	# As an example of the above, a command to 'connect' to the database.
-	my $open_cmd = make_a_child_node( 'command', $app_bp, 'application' );
-	$open_cmd->set_enumerated_attribute( 'command_type', 'DB_OPEN' );
-	my $open_cmd_a1 = make_a_child_node( 'command_arg', $open_cmd, 'command' );
-	$open_cmd_a1->set_node_ref_attribute( 'catalog_link', $app_cl );
+		# As an example of the above, a command to 'connect' to the database.
+		my $open_cmd = make_a_child_node( 'command', $app_bp, 'application' );
+		$open_cmd->set_enumerated_attribute( 'command_type', 'DB_OPEN' );
+		my $open_cmd_a1 = make_a_child_node( 'command_arg', $open_cmd, 'command' );
+		$open_cmd_a1->set_node_ref_attribute( 'catalog_link', $app_cl );
 
-	# Now create the node that says we will use Rosetta::Engine::Generic as 
-	# our data link product to talk to some database.
-	my $dlp = make_a_node( 'data_link_product', $model );
-	$dlp->set_literal_attribute( 'product_code', 'Rosetta::Engine::Generic' );
+		# Now create the node that says we will use Rosetta::Engine::Generic as 
+		# our data link product to talk to some database.
+		my $dlp = make_a_node( 'data_link_product', $model );
+		$dlp->set_literal_attribute( 'product_code', 'Rosetta::Engine::Generic' );
 
-	# Now create the model node that says what data storage product we will 
-	# use to implement/host the catalog/database, Oracle 9i in this case.
-	# The string 'Oracle_9_i' is something that Rosetta::Engine::Generic 
-	# and/or its supporting modules specifically recognize.
-	my $dsp = make_a_node( 'data_storage_product', $model );
-	$dsp->set_literal_attribute( 'product_code', 'Oracle_9_i' );
-	$dsp->set_literal_attribute( 'is_network_svc', 1 );
+		# Now create the model node that says what data storage product we will 
+		# use to implement/host the catalog/database, Oracle 9i in this case.
+		# The string 'Oracle_9_i' is something that Rosetta::Engine::Generic 
+		# and/or its supporting modules specifically recognize.
+		my $dsp = make_a_node( 'data_storage_product', $model );
+		$dsp->set_literal_attribute( 'product_code', 'Oracle_9_i' );
+		$dsp->set_literal_attribute( 'is_network_svc', 1 );
 
-	# Define a database catalog instance, in this case, an Oracle db for testers.
-	my $test_db = make_a_node( 'catalog_instance', $model );
-	$test_db->set_node_ref_attribute( 'product', $dsp );
-	$test_db->set_node_ref_attribute( 'blueprint', $catalog_bp );
+		# Define a database catalog instance, in this case, an Oracle db for testers.
+		my $test_db = make_a_node( 'catalog_instance', $model );
+		$test_db->set_node_ref_attribute( 'product', $dsp );
+		$test_db->set_node_ref_attribute( 'blueprint', $catalog_bp );
 
-	# Now realize the data connection to run from the app instance to the catalog instance.
-	# This is where we say that the app running right now (we) will use Rosetta::Engine::Generic.
-	# Each application instance may only have 1 realization of the same unrealized link.
-	my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'application' );
-	$test_app_cl->set_node_ref_attribute( 'product', $dlp );
-	$test_app_cl->set_node_ref_attribute( 'unrealized', $app_cl );
-	$test_app_cl->set_node_ref_attribute( 'target', $test_db );
-	$test_app_cl->set_literal_attribute( 'local_dsn', 'test' );
+		# Now realize the data connection to run from the app instance to the catalog instance.
+		# This is where we say that the app running right now (we) will use Rosetta::Engine::Generic.
+		# Each application instance may only have 1 realization of the same unrealized link.
+		my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'application' );
+		$test_app_cl->set_node_ref_attribute( 'product', $dlp );
+		$test_app_cl->set_node_ref_attribute( 'unrealized', $app_cl );
+		$test_app_cl->set_node_ref_attribute( 'target', $test_db );
+		$test_app_cl->set_literal_attribute( 'local_dsn', 'test' );
 
-	# Now tell Rosetta to get ready to open a connection to the catalog/database.
-	# This is when Perl will actually try to "require" Rosetta::Engine::Generic, 
-	# compiling it and DBI, and load the DBD module if possible.
-	my $prepared_open_cmd = $application->prepare( $open_cmd );
+		# Now tell Rosetta to get ready to open a connection to the catalog/database.
+		# This is when Perl will actually try to "require" Rosetta::Engine::Generic, 
+		# compiling it and DBI, and load the DBD module if possible.
+		my $prepared_open_cmd = $application->prepare( $open_cmd );
 
-	# Now we will actually call DBI->connect() and related stuff; this will cause a new 
-	# Rosetta Interface to be returned that fronts the resulting DBI database handle.
-	# The host params 'login_user/pass' are specifically recognized by the DB_OPEN command.
-	my $db_conn = $prepared_open_cmd->execute( { 'login_user' => 'jane', 'login_pass' => 'pawd' } );
+		# Now we will actually call DBI->connect() and related stuff; this will cause a new 
+		# Rosetta Interface to be returned that fronts the resulting DBI database handle.
+		# The host params 'login_user/pass' are specifically recognized by the DB_OPEN command.
+		my $db_conn = $prepared_open_cmd->execute( { 'login_user' => 'jane', 'login_pass' => 'pawd' } );
 
-	# ... Now we do whatever else we wanted to do with the database, such as running queries.
+		# ... Now we do whatever else we wanted to do with the database, such as running queries.
+	};
+
+	if( my $message = $@ ) {
+		if( ref($message) and UNIVERSAL::isa( $message, 'Rosetta::Interface' ) ) {
+			$message = $message->get_error_message();
+		}
+		my $translator = Locale::KeyedText->new_translator( 
+			['Rosetta::Engine::Generic::L::','Rosetta::L::','SQL::Routine::L::'], ['en'] );
+		my $user_text = $translator->translate_message( $message );
+		unless( $user_text ) {
+			$user_text = ref($message) ? "internal error: can't find user text for a message: ".
+				$message->as_string()." ".$translator->as_string() : $message;
+		}
+		print "SOMETHING'S WRONG: $user_text\n";
+	}
 
 	sub make_a_node {
 		my ($node_type, $model) = @_;
 		my $node = $model->new_node( $node_type );
 		$node->set_node_id( $model->get_next_free_node_id( $node_type ) );
 		$node->put_in_container( $model );
-		$node->add_reciprocal_links();
 		return( $node );
 	}
 
@@ -771,7 +784,6 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 		my $node = $pp_node->new_node( $node_type );
 		$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
 		$node->put_in_container( $container );
-		$node->add_reciprocal_links();
 		$node->set_node_ref_attribute( $pp_attr, $pp_node );
 		$node->set_parent_node_attribute_name( $pp_attr );
 		return( $node );
@@ -781,27 +793,27 @@ If $model were dumped right now as an XML string, after running the actual code
 above, it would look like this:
 
 	<root>
-			<elements />
-			<blueprints>
-					<application id="1">
-							<catalog_link id="1" application="1" name="big_data" target="1" />
-							<command id="1" application="1" command_type="DB_OPEN">
-									<command_arg id="1" command="1" catalog_link="1" />
-							</command>
-					</application>
-					<catalog id="1" />
-			</blueprints>
-			<tools>
-					<data_link_product id="1" product_code="Rosetta::Engine::Generic" />
-					<data_storage_product id="1" product_code="Oracle_9_i" is_network_svc="1" />
-			</tools>
-			<sites>
-					<application_instance id="1" blueprint="1">
-							<catalog_link_instance id="1" product="1" application="1" unrealized="1" target="1" local_dsn="test" />
-					</application_instance>
-					<catalog_instance id="1" product="1" blueprint="1" />
-			</sites>
-			<circumventions />
+		<elements />
+		<blueprints>
+			<application id="1">
+				<catalog_link id="1" application="1" name="big_data" target="1" />
+				<command id="1" application="1" command_type="DB_OPEN">
+					<command_arg id="1" command="1" catalog_link="1" />
+				</command>
+			</application>
+			<catalog id="1" />
+		</blueprints>
+		<tools>
+			<data_link_product id="1" product_code="Rosetta::Engine::Generic" />
+			<data_storage_product id="1" product_code="Oracle_9_i" is_network_svc="1" />
+		</tools>
+		<sites>
+			<application_instance id="1" blueprint="1">
+				<catalog_link_instance id="1" product="1" application="1" unrealized="1" target="1" local_dsn="test" />
+			</application_instance>
+			<catalog_instance id="1" product="1" blueprint="1" />
+		</sites>
+		<circumventions />
 	</root>
 
 =head1 DESCRIPTION
@@ -835,7 +847,7 @@ indirectly through the Rosetta::Interface class.  Following this logic, there
 is no class function or method documentation here.
 
 I<CAVEAT: THIS ENGINE IS "UNDER CONSTRUCTION" AND MANY FEATURES DESCRIBED BY 
-SQL::SyntaxModel::Language AND Rosetta::Features ARE NOT YET IMPLEMENTED.>
+SQL::Routine::Language AND Rosetta::Features ARE NOT YET IMPLEMENTED.>
 
 =head1 ROSETTA FEATURES SUPPORTED BY ENVIRONMENT
 
@@ -959,21 +971,21 @@ conditions for each feature are listed with them, below and indented.
 
 =head1 ENGINE CONFIGURATION OPTIONS
 
-The SQL::SyntaxModel objects that comprise Rosetta's inputs have special
+The SQL::Routine objects that comprise Rosetta's inputs have special
 compartments for passing configuration options that are only recognizable to
 the chosen "data link product", which in Rosetta terms is an Engine.  At the
 moment, all Engine Configuration Options are conceptually passed in at "catalog
 link realization time", which is usually when or before a Connection Interface
 is about to be made (by a prepare(DB_OPEN)/execute() combination), or it can be
 when or before an analagous operation (such as a DB_INFO).  When a catalog link
-is realized, a short chain of related SSM Nodes is consulted for their
+is realized, a short chain of related SRT Nodes is consulted for their
 attributes or associated child *_opt Nodes, one each of: catalog_link_instance,
 catalog_instance, data_link_product, data_storage_product.  I<The last two may
 be removed from consultation.>  Option values declared later in this list are
 increasingly global, and those declared earlier are increasingly local; any
 time there are name collisions, the most global values have precedence.  The
-SSM Nodes are read at prepare() time.  At execute() time, any ROUTINE_ARGS
-values can fill in blanks, but they can not override any any SSM Node option
+SRT Nodes are read at prepare() time.  At execute() time, any ROUTINE_ARGS
+values can fill in blanks, but they can not override any any SRT Node option
 values.  Once a Connection is created, the configuration settings for it can
 not be changed.  Rosetta::Engine::Generic recognizes these options:
 
@@ -1042,7 +1054,7 @@ uppercase) and can contain only letters, underscores, and partly numbers; SQL
 using this format tends to look much cleaner, and this format is also
 considered the "normal" way of doing things in SQL, with most databases
 supporting it only, if not both.  As delimited identifiers carry more
-information (a full superset), that is what Rosetta and SQL::SyntaxModel
+information (a full superset), that is what Rosetta and SQL::Routine
 support internally.  Movement from a delimited format to a bareword one will
 render all alpha characters uppercase and strip the non-allowed characters, and
 both steps discard information; movement the other way will keep all
@@ -1064,7 +1076,7 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::SyntaxModel, Locale::KeyedText,
+perl(1), Rosetta, SQL::Routine, Locale::KeyedText,
 Rosetta::Utility::SQLBuilder, DBI.
 
 =cut

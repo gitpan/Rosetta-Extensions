@@ -10,9 +10,9 @@ package Rosetta::Utility::SQLBuilder;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
-use Rosetta 0.35;
+use Rosetta 0.36;
 
 ######################################################################
 
@@ -24,7 +24,7 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.35
+	Rosetta 0.36
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -497,7 +497,7 @@ sub build_identifier_host_parameter_name {
 		# Insert named host parameter/placeholder.
 		return( ':'.$builder->quote_identifier( $routine_arg_name ) );
 		# This named style is in the SQL-1999 standard, apparently.  Oracle also uses it.
-		# TODO: Add support for @foo (inst of :foo) host param names that SQL-Server, etc uses.
+		# TODO: Add support for @foo (inst of :foo) host param names that SQL-Server, other dbs use.
 	}
 }
 
@@ -643,7 +643,7 @@ sub build_expr_predef_data_type { # SQL-2003, 6.1 "<data type>" (p161)
 	my $range_max = $domain_node->get_literal_attribute( 'range_max' );
 	my @allowed_values = map { $_->get_literal_attribute( 'value' ) } 
 		@{$domain_node->get_child_nodes( 'domain_opt' )};
-		# Note: SSM guarantees that domain_opt attrs have a defined value, though could be ''
+		# Note: SRT guarantees that domain_opt attrs have a defined value, though could be ''
 
 	my $type_conv = $builder->{$PROP_DATA_TYPES};
 
@@ -897,7 +897,7 @@ sub build_expr_call_sfunc {
 	} elsif( $sfunc eq 'LIKE' ) { #    - true if first arg contains second; args 3,4 are flags
 		return( '('.$builder->build_expr( $child_exprs->[0] ).
 			' LIKE '.$builder->build_expr( $child_exprs->[1] ).')' );
-		# Flags (args 3,4 in SSM) not implemented yet.
+		# Flags (args 3,4 in SRT) not implemented yet.
 	} elsif( $sfunc eq 'ADD' ) { #     - result of adding all args as numbers
 		return( '('.join( ' + ', map { $builder->build_expr( $_ ) } @{$child_exprs} ).')' );
 	} elsif( $sfunc eq 'SUB' ) { #     - result of subtracting all subsequent args from first
@@ -1044,7 +1044,7 @@ sub build_query_from_clause {
 		# Note: This code isn't very smart and assumes that all the view_join Nodes 
 		# are declared in the same order they should be output, even if their is 
 		# other evidence to the contrary.  This code can be smartened later.
-		# This code also assumes that the SSM is correct, such that all defined 
+		# This code also assumes that the SRT is correct, such that all defined 
 		# view_src Nodes are involved in a single common view_join; there should be 
 		# exactly one fewer view_join Node than there are view_src Nodes.
 		# TODO: Support the Oracle-8 way of putting join conditions in WHERE.
@@ -1166,7 +1166,7 @@ sub build_query_having_clause { # SQL-2003, 7.10 "<having clause>" (p329)
 sub build_query_window_clause { # SQL-2003, 7.11 "<window clause>" (p331)
 	# Function returns empty string if view has no window clause.
 	my ($builder, $view_node) = @_;
-	# TODO: I need to first update SQL::SyntaxModel a bit re the various 
+	# TODO: I need to first update SQL::Routine a bit re the various 
 	# parts of a <window clause>, then fix here.  Meanwhile, I dump what I got.
 	# Also see SQL-2003, 10.10 "<sort specification list>" (p517) for future reference.
 	my @order_list = 
@@ -1390,7 +1390,7 @@ sub build_schema_sequence_create { # SQL-2003, 11.62 "<sequence generator defini
 	my $start_val = $sequence_node->get_literal_attribute( 'start_val' );
 	my $cycle = $sequence_node->get_literal_attribute( 'cycle' );
 	my $order = $sequence_node->get_literal_attribute( 'order' );
-	# Note that SQL::SyntaxModel guarantees all integer attributes are already valid integers.
+	# Note that SQL::Routine guarantees all integer attributes are already valid integers.
 	return( 'CREATE SEQUENCE '.$sequence_name.
 		(defined( $increment ) ? ' INCREMENT BY '.$increment : '').
 		(defined( $start_val ) ? ' START WITH '.$start_val : '').
@@ -1940,10 +1940,10 @@ __END__
 
 =head1 SYNOPSIS
 
-	use Rosetta::Utility::SQLBuilder; # also loads SQL::SyntaxModel
+	use Rosetta::Utility::SQLBuilder; # also loads SQL::Routine
 	use DBI;
 
-	my $model = SQL::SyntaxModel->new_container();
+	my $model = SQL::Routine->new_container();
 
 	# ... Probably around this time you would stuff $model full of nodes that 
 	# describe the schema or action concepts you want to derive SQL from.
@@ -1977,7 +1977,7 @@ __END__
 This module is a reference implementation of fundamental Rosetta features.
 
 The Rosetta::Utility::SQLBuilder Perl 5 module is a functional but quickly
-built Rosetta utility class that converts a set of related SQL::SyntaxModel
+built Rosetta utility class that converts a set of related SQL::Routine
 Nodes into one or more SQL strings that are ready to give as input to a
 particular SQL relational database management system.  This class will by
 default produce SQL that is compliant with the ANSI/ISO SQL-2003 (or 1999 or
@@ -2004,7 +2004,7 @@ when generating SQL for an Oracle database regardless of whether the Engine is
 employing ODBC or SQL*Net as the pipe over which the SQL is sent.  That said,
 it does have specific support for the DBI module's standard way of indicating
 run-time SQL host parameters / bind variables (using a '?' for each instance);
-since DBI's arguments are positional and SQL::SyntaxModel's are named, this
+since DBI's arguments are positional and SQL::Routine's are named, this
 class will also return a map for the SQL that says what order to give the named
 values to DBI.
 
@@ -2088,7 +2088,7 @@ escaped in generated SQL by way of a double occurance (eg: '"' becomes '""').
 This "getter" method returns this object's "data type customizations" family of
 properties in a new hash ref.  The family has 46 members with more likely to be
 added later; see the source code for a list.  Most of the members are used to
-map SQL::SyntaxModel qualified data types or domains to RDBMS native data
+map SQL::Routine qualified data types or domains to RDBMS native data
 types.  As data types is one of the places that RDBMS products are more likely
 to differ from each other, the customization related to them is fine grained in
 SQLBuilder.  The current values either match the 2003 SQL standard or are as
@@ -2189,11 +2189,11 @@ This getter/setter method returns this object's "single schema join chars"
 scalar property; if the optional NEW_VALUE argument is defined, this property
 is first set to that value.  When the "flatten to single schema" property is
 true, then "single schema join chars" defines what short character string to
-concatenate the SSM schema name and schema object name with when flattening
+concatenate the SRT schema name and schema object name with when flattening
 them from two levels to one.  The default value of this property is '__' (a
 double underscore).  It should have a value that is guaranteed to never appear
 in either the schema names or schema object names being joined, so that
-reverse-engineering such a flattened schema into a SSM can be trivial.
+reverse-engineering such a flattened schema into a SRT can be trivial.
 
 =head2 emulate_subqueries([ NEW_VALUE ])
 
@@ -2262,7 +2262,7 @@ state for a build* invocation.
 
 This getter/setter method returns this object's "make host params" boolean
 property; if the optional NEW_VALUE argument is defined, this property is first
-set to that value.  This property helps manage the fact that routine_arg SSM
+set to that value.  This property helps manage the fact that routine_arg SRT
 Nodes can have dual purposes when being converted to SQL.  With an ordinary
 stored routine, they turn into normal argument declarations and are used by SQL
 routine code by name as usual.  With an application-side routine, or BLOCKs inside
@@ -2319,7 +2319,7 @@ See the subsections of SQL-2003 Foundation section 5 "Lexical elements" (p131).
 	# Function returns "'can''t you come?'".
 
 This method takes a literal scalar value in the argument LITERAL and returns a
-quoted and/or escaped version of it, according to the rules of the SSM simple
+quoted and/or escaped version of it, according to the rules of the SRT simple
 data type specified in BASE_TYPE.  This method is a wrapper for the other
 quote_*_literal( LITERAL ) methods, with BASE_TYPE determining which to call.
 
@@ -2389,22 +2389,22 @@ identifier, pass each piece here separately, and join with "." afterwards.
 
 	my $sql = $builder->build_identifier_element( $object_node );
 
-This method takes a SQL::SyntaxModel::Node object in OBJECT_NODE, extracts its
+This method takes a SQL::Routine::Node object in OBJECT_NODE, extracts its
 'name' attribute, and returns that after passing it to quote_identifier().  The
 result is an "unqualified identifier".  This is the most widely used, at least
 internally, build_identifier_*() method; for example, it is used for table/view
 column names in table/view definitions, and for all declaration or use of
-routine variables, or for routine/view arguments.  Note that SQL::SyntaxModel
+routine variables, or for routine/view arguments.  Note that SQL::Routine
 will throw an exception if the Node argument is of the wrong type.
 
 =head2 build_identifier_host_parameter_name( ROUTINE_ARG_NODE )
 
 	my $sql = $builder->build_identifier_host_parameter_name( $routine_arg_node );
 
-This method takes a routine_arg SSM Node and generates either a named or
+This method takes a routine_arg SRT Node and generates either a named or
 positional SQL identifier (depending on this object's "positional host params"
 property) based on the "name" of the routine_arg.  This function is used for
-application-side or application-invoked SSM routines.  Named host params look
+application-side or application-invoked SRT routines.  Named host params look
 according to the SQL-2003 standard, like ":foo", and positional host params
 follow the DBI-style '?' (and also SQL-2003 standard, apparently).  When making
 a positional parameter, this method adds an element to the 'map array'
@@ -2481,7 +2481,7 @@ wrapper for other build_expr_*() methods, which are called for specific
 
 	my $sql = $builder->build_expr_predef_data_type( $domain_node );
 
-This method takes a 'domain' SSM Node and builds a corresponding SQL fragment
+This method takes a 'domain' SRT Node and builds a corresponding SQL fragment
 such as would be used in the "data type" reference of a table column
 definition.  Example return values are "VARCHAR(40)", "DECIMAL(7,2)", "BOOLEAN"
 "INTEGER UNSIGNED".  Most of the "data type customizations" property elements
@@ -2491,7 +2491,7 @@ are used to customize this method.  See SQL-2003 6.1 "<data type>" (p161).
 
 	my $sql = $builder->build_expr_data_type_or_domain_name( $domain_node );
 
-This method takes a 'domain' SSM Node and returns one of two kinds of SQL
+This method takes a 'domain' SRT Node and returns one of two kinds of SQL
 fragments, depending on whether or not the current database engine supports
 "domain" schema objects (and we are using them).  If it does then this method
 returns the identifier of the domain schema object to refer to; if it does
@@ -2686,7 +2686,7 @@ definition and manipulation" (p519).
 
 	my $sql = $builder->build_schema_schema_create( $schema_node );
 
-This method takes a 'schema' SSM Node and builds a corresponding "CREATE
+This method takes a 'schema' SRT Node and builds a corresponding "CREATE
 SCHEMA" DDL SQL statement, which it returns.  See SQL-2003, 11.1 "<schema
 definition>" (p519).
 
@@ -2694,7 +2694,7 @@ definition>" (p519).
 
 	my $sql = $builder->build_schema_schema_delete( $schema_node );
 
-This method takes a 'schema' SSM Node and builds a corresponding "DROP SCHEMA"
+This method takes a 'schema' SRT Node and builds a corresponding "DROP SCHEMA"
 DDL SQL statement, which it returns.  See SQL-2003, 11.2 "<drop schema
 statement>" (p522).
 
@@ -2702,7 +2702,7 @@ statement>" (p522).
 
 	my $sql = $builder->build_schema_domain_create( $domain_node );
 
-This method takes a 'domain' SSM Node and builds a corresponding "CREATE
+This method takes a 'domain' SRT Node and builds a corresponding "CREATE
 DOMAIN" DDL SQL statement, which it returns.  See SQL-2003, 11.24 "<domain
 definition>" (p603).
 
@@ -2710,7 +2710,7 @@ definition>" (p603).
 
 	my $sql = $builder->build_schema_domain_delete( $domain_node );
 
-This method takes a 'domain' SSM Node and builds a corresponding "DROP DOMAIN"
+This method takes a 'domain' SRT Node and builds a corresponding "DROP DOMAIN"
 DDL SQL statement, which it returns.  See SQL-2003, 11.30 "<drop domain
 statement>" (p610).
 
@@ -2718,7 +2718,7 @@ statement>" (p610).
 
 	my $sql = $builder->build_schema_sequence_create( $sequence_node );
 
-This method takes a 'sequence' SSM Node and builds a corresponding "CREATE
+This method takes a 'sequence' SRT Node and builds a corresponding "CREATE
 SEQUENCE" DDL SQL statement, which it returns.  See SQL-2003, 11.62 "<sequence
 generator definition>" (p726).
 
@@ -2726,7 +2726,7 @@ generator definition>" (p726).
 
 	my $sql = $builder->build_schema_sequence_delete( $sequence_node );
 
-This method takes a 'sequence' SSM Node and builds a corresponding "DROP
+This method takes a 'sequence' SRT Node and builds a corresponding "DROP
 SEQUENCE" DDL SQL statement, which it returns.  See SQL-2003, 11.64 "<drop
 sequence generator statement>" (p729).
 
@@ -2734,7 +2734,7 @@ sequence generator statement>" (p729).
 
 	my $sql = $builder->build_schema_table_create( $table_node );
 
-This method takes a 'table' SSM Node and builds a corresponding "CREATE TABLE"
+This method takes a 'table' SRT Node and builds a corresponding "CREATE TABLE"
 DDL SQL statement, which it returns.  See SQL-2003, 6.2 "<field definition>"
 (p173) and SQL-2003, 11.3 "<table definition>" (p525) and SQL-2003, 11.4
 "<column definition>" (p536) and SQL-2003, 11.5 "<default clause>" (p541) and
@@ -2747,7 +2747,7 @@ definition>" (p569).
 
 	my $sql = $builder->build_schema_table_delete( $table_node );
 
-This method takes a 'table' SSM Node and builds a corresponding "DROP TABLE"
+This method takes a 'table' SRT Node and builds a corresponding "DROP TABLE"
 DDL SQL statement, which it returns.  See SQL-2003, 11.21 "<drop table
 statement>" (p587).
 
@@ -2755,7 +2755,7 @@ statement>" (p587).
 
 	my $sql = $builder->build_schema_view_create( $view_node );
 
-This method takes a 'view' SSM Node and builds a corresponding "CREATE VIEW"
+This method takes a 'view' SRT Node and builds a corresponding "CREATE VIEW"
 DDL SQL statement, which it returns.  See SQL-2003, 11.22 "<view definition>"
 (p590).
 
@@ -2763,7 +2763,7 @@ DDL SQL statement, which it returns.  See SQL-2003, 11.22 "<view definition>"
 
 	my $sql = $builder->build_schema_view_delete( $view_node );
 
-This method takes a 'view' SSM Node and builds a corresponding "DROP VIEW" DDL
+This method takes a 'view' SRT Node and builds a corresponding "DROP VIEW" DDL
 SQL statement, which it returns.  See SQL-2003, 11.23 "<drop view statement>"
 (p600).
 
@@ -2771,7 +2771,7 @@ SQL statement, which it returns.  See SQL-2003, 11.23 "<drop view statement>"
 
 	my $sql = $builder->build_schema_routine_create( $routine_node );
 
-This method takes a 'routine' SSM Node and builds a corresponding "CREATE
+This method takes a 'routine' SRT Node and builds a corresponding "CREATE
 ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.  See SQL-2003,
 11.39 "<trigger definition>" (p629) and SQL-2003, 11.50 "<SQL-invoked routine>"
 (p675).
@@ -2780,7 +2780,7 @@ ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.  See SQL-2003,
 
 	my $sql = $builder->build_schema_routine_delete( $routine_node );
 
-This method takes a 'routine' SSM Node and builds a corresponding "DROP
+This method takes a 'routine' SRT Node and builds a corresponding "DROP
 ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.  See SQL-2003,
 11.40 "<drop trigger statement>" (p633) and SQL-2003, 11.52 "<drop routine
 statement>" (p703).
@@ -2790,14 +2790,14 @@ statement>" (p703).
 These "getter" methods build SQL statements that are used mainly when declaring
 users or roles and their permissions.  They correspond to the subsections of
 SQL-2003 Foundation section 12 "Access control" (p731).  Note that
-SQL::SyntaxModel assigns privileges to roles, and roles to users; privileges
+SQL::Routine assigns privileges to roles, and roles to users; privileges
 are not assigned to users directly.
 
 =head2 build_access_role_create( ROLE_NODE )
 
 	my $sql = $builder->build_access_role_create( $role_node );
 
-This method takes a 'role' SSM Node and builds a corresponding "CREATE ROLE"
+This method takes a 'role' SRT Node and builds a corresponding "CREATE ROLE"
 SQL statement, which it returns.  See SQL-2003, 12.4 "<role definition>"
 (p743).
 
@@ -2805,7 +2805,7 @@ SQL statement, which it returns.  See SQL-2003, 12.4 "<role definition>"
 
 	my $sql = $builder->build_access_role_delete( $role_node );
 
-This method takes a 'role' SSM Node and builds a corresponding "DROP ROLE" SQL
+This method takes a 'role' SRT Node and builds a corresponding "DROP ROLE" SQL
 statement, which it returns.  See SQL-2003, 12.6 "<drop role statement>"
 (p746).
 
@@ -2847,7 +2847,7 @@ commands. They correspond to the subsections of SQL-2003 Foundation sections:
 
 	my $sql = $builder->build_dmanip_routine_body( $routine_node, 1 );
 
-This method takes a 'routine' SSM Node and constructs the main body SQL of that
+This method takes a 'routine' SRT Node and constructs the main body SQL of that
 routine, which is the BEGIN...END compound statement, all the contained routine
 statements, and the variable declarations; these are all returned as a string.
 This method does not construct a method name or argument list.  It is suitable
@@ -2938,7 +2938,6 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::SyntaxModel, Rosetta::Engine::Generic,
-Rosetta::Utility::SQLParser.
+perl(1), Rosetta, SQL::Routine, Rosetta::Engine::Generic, Rosetta::Utility::SQLParser.
 
 =cut

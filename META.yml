@@ -1,12 +1,12 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Rosetta-Extensions
-version:      0.08
+version:      0.09
 version_from: 
 installdirs:  site
 requires:
-    DBI:                           1.42
-    Rosetta:                       0.35
+    DBI:                           1.43
+    Rosetta:                       0.36
 
 distribution_type: module
 generated_by: ExtUtils::MakeMaker version 6.17

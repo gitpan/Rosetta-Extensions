@@ -45,8 +45,8 @@ Standard Modules: none
 
 Nonstandard Modules: 
 
-	Rosetta 0.35
-	DBI 1.42
+	Rosetta 0.36
+	DBI 1.43
 	various DBI Driver (DBD) modules
 
 SUPPORT

@@ -10,7 +10,7 @@ package Rosetta::Engine::Generic::L::en;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 ######################################################################
 
@@ -100,7 +100,7 @@ __END__
 	# do work ...
 
 	my $translator = Locale::KeyedText->new_translator( ['Rosetta::Engine::Generic::L::', 
-		'Rosetta::L::', 'SQL::SyntaxModel::L::'], ['en'] );
+		'Rosetta::L::', 'SQL::Routine::L::'], ['en'] );
 
 	# do work ...
 

@@ -1,3 +1,23 @@
+2004-10-04   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.09.
+
+	* New code file versions are: SQLBuilder.pm v0.09, Generic.pm v0.06, en.pm
+	v0.06.
+
+	* Updated external dependencies on Rosetta to v0.36 and on DBI to v1.43.
+
+	* Renamed all references on SQL::SyntaxModel in code and documentation to
+	SQL::Routine.  All name-related strings, both in code and documentation,
+	were updated as follows: "SyntaxModel" -> "Routine", "SSM" -> "SRT", "ssm"
+	-> "srt".  Most renaming was done in Generic.pm and SQLBuilder.pm.
+
+	* Updated the make[_child]_srt_node() methods in Generic.pm to remove the
+	calls to add_reciprocal_links(), that method no longer exists in
+	SQL::Routine (it isn't needed); removed 2 refs in the SYNOPSIS also.
+
+	* Updated the SYNOPSIS in Generic.pm, including a whitespace bug fix.
+
 2004-09-09   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.08.

@@ -2,13 +2,19 @@ CURRENT DOCUMENTATION: TODO
 
 Preamble: The following will have external coordinated changes in
 Rosetta::Validator so that they can be tested and, where needed, Rosetta and
-SQL::SyntaxModel also.  The SQL-2003 standard will continue to be used for
+SQL::Routine also.  The SQL-2003 standard will continue to be used for
 primary guidance.  Free database products that run under Mac OS X 10.2+ and
 have a well-maintained DBD module will get the early priority simply because I
 can easily download and install them on my computer.  Other databases will get
 supported when I can get access to them, or someone else does it for me.
 
-r0.09 - Start off the Rosetta::Utility::SQLParser module.  Update Generic.pm
+r0.10 - Compatability update to go along with the upcoming SQL::Routine 0.44,
+where 'commands' are no longer separate entities, but embedded in 'routines';
+working with this will require a partial design change in Generic.pm.  Update
+SQLBuilder.pm to account for that some, and deal with standard functions or
+procedures taking named arguments rather than positional ones.
+
+r0.11 - Start off the Rosetta::Utility::SQLParser module.  Update Generic.pm
 and the two Utility modules to finish implementing these commands: SCHEMA_LIST,
 SCHEMA_INFO, SCHEMA_VERIFY, SCHEMA_CREATE, SCHEMA_DELETE, DOMAIN_LIST,
 DOMAIN_INFO, DOMAIN_VERIFY, DOMAIN_CREATE, DOMAIN_DELETE, TABLE_LIST,
@@ -16,40 +22,40 @@ TABLE_INFO, TABLE_VERIFY, TABLE_CREATE, TABLE_DELETE.  Test that they work
 against SQLite and MySQL.  In other words, make sure that table creation,
 removal, and reverse-engineering for tables works with SQLite and MySQL.  At
 this moment, reverse-engineering will be done manually since it's simple.  If
-possible, do this using: Perl 5.8.5, DBI 1.43, SQLite 3.0.6+, MySQL 4.1.4+. 
-Once that's done, announce Rosetta/SQL::SyntaxModel Developer Release #2.
+possible, do this using: Perl 5.8.5, DBI 1.43, SQLite 3.0.7+, MySQL 4.1.5+. 
+Once that's done, announce Rosetta/SQL::Routine Developer Release #2.
 
-r0.10 - Make application-side standard routines work, so that the standard
+r0.12 - Make application-side standard routines work, so that the standard
 selects and DML are possible.  Use same dependencies as above.
 
-r0.11 - Make the stuff developed previously work with SQLite 2.8.15+ and MySQL
+r0.13 - Make the stuff developed previously work with SQLite 2.8.15+ and MySQL
 3.23.x, adding features emulation for sub-selects and compound selects (using
 temp tables and joins).  Test both named and positional host params.  Once 
-that's done, announce Rosetta/SQL::SyntaxModel Developer Release #3.
+that's done, announce Rosetta/SQL::Routine Developer Release #3.
 
-r0.12 - Make the previous stuff work with a recent PostgreSQL version, either
+r0.14 - Make the previous stuff work with a recent PostgreSQL version, either
 7.4 or 8.0.  Finish implementing server-side view and routine creation and
 removal, since we now have a database engine that supports those features.  At
 this moment, SQL tokenizing will probably be handled by a new dependency, such
 as Parse::RecDescent, as it is a lot more complicated.  Once that's done,
-announce Rosetta/SQL::SyntaxModel Developer Release #4.
+announce Rosetta/SQL::Routine Developer Release #4.
 
-r0.13 - Start working on the schema-to-schema or db-to-db cloning features, and
+r0.15 - Start working on the schema-to-schema or db-to-db cloning features, and
 the insert-cursor features.
 
 * Update the list of 'standard functions' and 'standard procedures' in
-SQLBuilder (and SQL::SyntaxModel) to more closely reflect the SQL-2003
+SQLBuilder (and SQL::Routine) to more closely reflect the SQL-2003
 standard, fill other gaps.
 
 * Start the Rosetta::Emulator::DBI module and try to get it working on
 something simple, like connecting to a database and selecting records.  Maybe
 table creation and IUD also.
 
-* Some time around now, any or all of the core Rosetta/SSM modules may be
+* Some time around now, any or all of the core Rosetta/SRT modules may be
 updated to 'alpha' development status, up from 'pre-alpha'.  I may want to
 change the License around then too.
 
-* Announce the Rosetta/SQL::SyntaxModel Generally Available Release #1.
+* Announce the Rosetta/SQL::Routine Generally Available Release #1.
 
 * Get it to work with Oracle, OpenBase, other commonly used database products.
 

@@ -13,6 +13,6 @@ complete modules at this time.
 
 =head1 SEE ALSO
 
-Rosetta, SQL::SyntaxModel, and various other modules mentioned in their SEE ALSO.
+Rosetta, SQL::Routine, and various other modules mentioned in their SEE ALSO.
 
 =cut
