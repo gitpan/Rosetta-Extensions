@@ -1,3 +1,32 @@
+2004-07-03   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.05.
+
+	* Updated external dependencies on Locale::KeyedText to v0.04 and on
+	SQL::SyntaxModel to v0.22.  Note that the Makefile.pl in release 0.04
+	mistakenly said that Locale::KeyedText 0.04 was a prerequisite, but that
+	wasn't true until now.
+
+	* Updated SQLBuilder.pm (now v0.05) extensively such that about 15% of the
+	module was added or changed.  The most extensive change concerns its POD
+	documentation, as now 100% of the module's methods are documented;
+	previously, less than half of them were.  Added 1 new state maintenance
+	property plus its accessor method.  A few methods were re-ordered and/or
+	re-named.  Rebuilt the methods for making INSERT, UPDATE, DELETE statements
+	so they should now actually appear to work.  Literals are now escaped
+	according to their type.  Now all Perl switch statement options are
+	explicitely specified rather than the last one going in 'else'; this is
+	meant to prevent bugs in the future caused by the addition of new options
+	to SQL::SyntaxModel.  build_dmanip_into_clause() was renamed to
+	build_query_into_clause() and merged into the generic query function list. 
+	build_dmanip_stmt_table_or_view_name() was converted to
+	build_dmanip_src_schema_object_name().  build_expr_call_cview() was merged
+	into build_query_subquery().  Split build_dmanip_call_sproc() into itself
+	plus build_dmanip_[insert|update|delete]_stmt(); build_dmanip_set_clause()
+	was merged into the latter, and build_query_table_value_constr() was merged
+	into 'insert'.  A few other small code updates.  All methods now have 
+	SQL-2003 section/page references, where applicable.
+
 2004-06-21   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.04.

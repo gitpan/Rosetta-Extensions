@@ -11,10 +11,10 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.04';
+$VERSION = '0.05';
 
-use Locale::KeyedText 0.03;
-use SQL::SyntaxModel 0.21;
+use Locale::KeyedText 0.04;
+use SQL::SyntaxModel 0.22;
 
 ######################################################################
 
@@ -26,8 +26,8 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Locale::KeyedText 0.03 (for error messages)
-	SQL::SyntaxModel 0.21
+	Locale::KeyedText 0.04 (for error messages)
+	SQL::SyntaxModel 0.22
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -77,9 +77,6 @@ suggesting improvements to the standard version.
 # This set of properties are generally set once at the start of a SQLBuilder object's life 
 # and aren't changed later, since they are generally static configuration data.
 my $PROP_POSIT_BVARS = 'posit_bvars'; # boolean; true if bind vars are positional; false if named
-	# This property simply indicates the database engine's capability; it does not say "act now".
-	# The PBV_MAP_ARY property can be set regardless of the engine's capability, 
-	# but SQLBuilder code will only do something with it if POSIT_BVARS is true.
 my $PROP_DELIM_IDENT = 'delim_ident'; # boolean; true if identifiers are delimited, case-sensitive
 my $PROP_IDENT_QUOTC = 'ident_quotc'; # character; character used to delimit identifiers with
 my $PROP_DATA_TYPES  = 'data_types' ; # hash ref
@@ -99,18 +96,8 @@ my $PROP_ET_JOIN_CHARS = 'et_join_chars'; # char str; join parts of temp table n
 # usual, or some may also be set or changed by SQLBuilder code, and can be used effectively 
 # as extra output from the build* method; they maintain state for a build* invocation.
 my $PROP_MAKE_BVARS = 'make_bvars'; # boolean; true when routine vars are bind vars, false when not
-	# This property helps manage the fact that routine_arg Nodes can have dual purposes.
-	# With an ordinary stored routine, they turn into normal argument declarations and 
-	# are used by SQL routine code by name as usual.  With an ANONYMOUS stored routine, 
-	# or BLOCKs inside those, they instead represent application bind variables, which 
-	# are formatted differently when put in SQL.  This property stores the current state 
-	# as to whether any referenced routine_arg should be turned into bind vars or not.
 my $PROP_PBV_MAP_ARY = 'pbv_map_ary'; # array ref; holds state for bind var map  of current sql code
-	# This property is explicitely emptied by external code prior to that code requesting 
-	# that we build SQL which contains positional bind variables.  When we build said SQL, 
-	# each time we are to insert a bind variable, we simply put a "?" in the SQL, and we add 
-	# to this array the name of the routine_arg whose value is supposed to substitute at exec time.
-	# As soon as said SQL is made and returned, external code reads this array's values.
+my $PROP_UNWRAP_VIEWS = 'unwrap_views'; # boolean; true to use original src names, false for correl
 
 # Names of specific data types, used as keys in $PROP_DATA_TYPES hash.
 my $DT_NUM_INT_8  = 'NUM_INT_8' ; # what signed ints up to  8 bits are stored as
@@ -187,6 +174,7 @@ sub new {
 
 	$builder->{$PROP_MAKE_BVARS} = 0;
 	$builder->{$PROP_PBV_MAP_ARY} = [];
+	$builder->{$PROP_UNWRAP_VIEWS} = 0;
 
 	return( $builder );
 }
@@ -392,14 +380,24 @@ sub make_bind_vars {
 
 ######################################################################
 
+sub get_positional_bind_var_map_array {
+	my ($builder) = @_;
+	return( [@{$builder->{$PROP_PBV_MAP_ARY}}] );
+}
+
 sub clear_positional_bind_var_map_array {
 	my ($builder) = @_;
 	@{$builder->{$PROP_PBV_MAP_ARY}} = ();
 }
 
-sub get_positional_bind_var_map_array {
-	my ($builder) = @_;
-	return( [@{$builder->{$PROP_PBV_MAP_ARY}}] );
+######################################################################
+
+sub unwrap_views {
+	my ($builder, $new_value) = @_;
+	if( defined( $new_value ) ) {
+		$builder->{$PROP_UNWRAP_VIEWS} = $new_value;
+	}
+	return( $builder->{$PROP_UNWRAP_VIEWS} );
 }
 
 ######################################################################
@@ -517,10 +515,16 @@ sub build_identifier_view_src_col {
 
 sub build_identifier_fake_view_src_col {
 	my ($builder, $view_src_node, $match_col_node) = @_;
-	my $view_src_name = $view_src_node->get_literal_attribute( 'name' );
-	my $match_col_name = $match_col_node->get_literal_attribute( 'name' );
-	return( $builder->quote_identifier( $view_src_name ).'.'.
-		$builder->quote_identifier( $match_col_name ) );
+	if( $builder->{$PROP_UNWRAP_VIEWS} ) {
+		# We are probably in the WHERE/etc clause of an INSERT|UPDATE|DELETE statement.
+		# Assume IUD statement is against one source for now, so unqualified src col names are fine.
+		return( $builder->quote_identifier( $match_col_node->get_literal_attribute( 'name' ) ) );
+	} else {
+		# We are in a normal SELECT statement or view.
+		# As usual, have fully qualified name to support multiple sources.
+		return( $builder->quote_identifier( $view_src_node->get_literal_attribute( 'name' ) ).'.'.
+			$builder->quote_identifier( $match_col_node->get_literal_attribute( 'name' ) ) );
+	}
 }
 
 sub build_identifier_temp_table_for_emul {
@@ -552,11 +556,12 @@ sub build_expr {
 	my ($builder, $expr_node) = @_;
 	my $expr_type = $expr_node->get_enumerated_attribute( 'expr_type' );
 	if( $expr_type eq 'LIT' ) {
-		# For now we treat all literals as character strings; in the future, 
-		# make this smarter so that things like non-char data are quoted right.
-		# This may require the expr Node 'domain' attribute to be set optionally with 'LIT' exprs.
-		return( $builder->quote_literal( 
-			$expr_node->get_literal_attribute( 'lit_val' ), 'STR_CHAR' ) );
+		my $domain_node = $expr_node->get_node_ref_attribute( 'domain' );
+		my $lit_val = $expr_node->get_literal_attribute( 'lit_val' );
+		return( $builder->quote_literal( $lit_val, 
+			$domain_node->get_enumerated_attribute( 'base_type' ) ) );
+	} elsif( $expr_type eq 'CAST' ) {
+		return( $builder->build_expr_cast_spec( $expr_node ) );
 	} elsif( $expr_type eq 'COL' ) {
 		return( $builder->build_identifier_view_src_col( 
 			$expr_node->get_node_ref_attribute( 'src_col' ) ) );
@@ -571,10 +576,12 @@ sub build_expr {
 		if( $builder->{$PROP_MAKE_BVARS} ) {
 			# We are currently within an 'ANONYMOUS' routine, so arg is an app bind var.
 			if( $builder->{$PROP_POSIT_BVARS} ) {
+				# Insert positional bind variable/placeholder.
 				push( @{$builder->{$PROP_PBV_MAP_ARY}}, 
 					$routine_arg_node->get_literal_attribute( 'name' ) );
 				return( '?' ); # DBI-style positional place-holders.
 			} else {
+				# Insert named bind variable/placeholder.
 				return( ':'.$builder->build_identifier_element( $routine_arg_node ) ); # Oracle-style
 			}
 		} else {
@@ -584,21 +591,19 @@ sub build_expr {
 	} elsif( $expr_type eq 'VAR' ) {
 		return( $builder->build_identifier_element( 
 			$expr_node->get_node_ref_attribute( 'routine_var' ) ) );
-	} elsif( $expr_type eq 'CAST' ) {
-		return( $builder->build_expr_cast_spec( $expr_node ) );
 	} elsif( $expr_type eq 'SEQN' ) {
 		return( $builder->build_expr_seq_next( 
 			$expr_node->get_node_ref_attribute( 'sequence' ) ) );
 	} elsif( $expr_type eq 'CVIEW' ) {
-		return( $builder->build_expr_call_cview( $expr_node ) );
+		return( $builder->build_query_subquery( $expr_node ) );
 	} elsif( $expr_type eq 'SFUNC' ) {
 		return( $builder->build_expr_call_sfunc( $expr_node ) );
-	} elsif( $expr_type eq 'SFUNC' ) {
+	} elsif( $expr_type eq 'UFUNC' ) {
 		return( $builder->build_expr_call_ufunc( $expr_node ) );
-	} else { # $expr_type eq 'LIST'
+	} elsif( $expr_type eq 'LIST' ) {
 		return( '('.join( ', ', map { $builder->build_expr( $_ ) } 
 			@{$expr_node->get_child_nodes()} ).')' );
-	}
+	} else {}
 }
 
 ######################################################################
@@ -821,25 +826,6 @@ sub build_expr_seq_next { # SQL-2003, 6.13 "<next value expression>" (p217)
 
 ######################################################################
 
-sub build_expr_call_cview {
-	my ($builder, $expr_node) = @_;
-	my $cview = $expr_node->get_enumerated_attribute( 'call_view' );
-	my $cview_name = $builder->build_identifier_schema_obj( $cview );
-	my %cview_arg_exprs = 
-		map { ($_->get_node_ref_attribute( 'call_view_arg' ) => $_) } 
-		@{$expr_node->get_child_nodes()}; # gets child view_expr Nodes
-	# Note: The build_expr() calls are done below to ensure the arg values are 
-	# defined in the same order they are output; this lets optional insertion 
-	# of positionally determined bind vars (and their mapping) to work right.
-	my $arg_val_list = join( ', ', 
-		map { $cview_arg_exprs{$_} ? $builder->build_expr( $cview_arg_exprs{$_} ) : 'NULL' } 
-		@{$cview->get_child_nodes( 'view_arg' )} );
-	return( $cview_name.($arg_val_list ? '('.$arg_val_list.')' : '') );
-	# TODO: amend this to allow for inlining of subqueries, or calls to non-subquery views
-}
-
-######################################################################
-
 sub build_expr_call_sfunc {
 	# Corresponds to these sections:
 	# 6.11 "<case expression>" (p197)
@@ -1008,16 +994,6 @@ sub build_expr_call_ufunc {
 
 ######################################################################
 
-sub build_query_table_value_constr { # SQL-2003, 7.3 "<table value constructor>" (p298)
-	my ($builder, $expr_node) = @_;
-	# Note: What this method does may not actually correspond to SQL-2003, 7.3 at all; 
-	# meanwhile, I made it look like a constructed list you see in a query expression, 
-	# or in the start of an INSERT statement.
-	my $child_exprs = $expr_node->get_child_nodes();
-	return( 'VALUES '.join( ', ', map { $builder->build_expr( $_ ) } @{$child_exprs} ) );
-	# SQL-2003 seems to be saying that the above list doesn't need parenthesis around it.
-}
-
 sub build_query_table_expr { # SQL-2003, 7.4 "<table expression>" (p300)
 	my ($builder, $view_node) = @_;
 	return( $builder->build_query_from_clause( $view_node ).
@@ -1026,6 +1002,8 @@ sub build_query_table_expr { # SQL-2003, 7.4 "<table expression>" (p300)
 		' '.$builder->build_query_having_clause( $view_node ).
 		' '.$builder->build_query_window_clause( $view_node ) );
 }
+
+######################################################################
 
 sub build_query_from_clause { 
 	# SQL-2003, 7.5 "<from clause>" (p301)
@@ -1095,11 +1073,13 @@ sub build_query_table_factor { # SQL-2003, 7.6 "<table reference>" (p303)
 		return( $table_name.' AS '.$correlation_name );
 	} else { # $match_type eq 'view'
 		if( $match_node->get_node_ref_attribute( 'p_view' ) ) {
-			# The view we are matching is a subquery.  OR IT IS A UNION MEMBER?
+			# The view we are matching is a subquery.
 			if( $builder->{$PROP_INLINE_SUBQ} ) {
+				# Embed an anonymous subquery; argument passing is not yet supported.
 				my $query_expression = $builder->build_query_query_expr( $match_node );
 				return( '('.$query_expression.') AS '.$correlation_name );
 			} else {
+				# Call a named subquery; argument passing is supported.
 				my %src_args_to_view_exprs = 
 					map { ($_->get_node_ref_attribute( 'view_src_arg' ) => $_) } 
 					grep { $_->get_enumerated_attribute( 'view_part' ) eq 'FROM' } 
@@ -1118,12 +1098,14 @@ sub build_query_table_factor { # SQL-2003, 7.6 "<table reference>" (p303)
 				return( $view_name.($arg_list?'('.$arg_list.')':'').' AS '.$correlation_name );
 			}
 		} else { 
-			# The view we are matching is not a subquery.
+			# The view we are matching is a schema object.
 			my $view_name = $builder->build_identifier_schema_obj( $match_node );
 			return( $view_name.' AS '.$correlation_name );
 		}
 	}
 }
+
+######################################################################
 
 sub build_query_where_clause { # SQL-2003, 7.8 "<where clause>" (p319)
 	# Function returns empty string if view has no where clause.
@@ -1134,6 +1116,8 @@ sub build_query_where_clause { # SQL-2003, 7.8 "<where clause>" (p319)
 		@{$view_node->get_child_nodes( 'view_expr' )};
 	return( @expr_list ? 'WHERE '.$expr_list[0] : '' );
 }
+
+######################################################################
 
 sub build_query_group_clause { # SQL-2003, 7.9 "<group by clause>" (p320)
 	# Function returns empty string if view has no group by clause.
@@ -1152,6 +1136,8 @@ sub build_query_group_clause { # SQL-2003, 7.9 "<group by clause>" (p320)
 	# Note: <group by clause> has opt <set quantifier>, looks redundant w SEL DIST|ALL; not impl.
 }
 
+######################################################################
+
 sub build_query_having_clause { # SQL-2003, 7.10 "<having clause>" (p329)
 	# Function returns empty string if view has no having clause.
 	my ($builder, $view_node) = @_;
@@ -1162,12 +1148,14 @@ sub build_query_having_clause { # SQL-2003, 7.10 "<having clause>" (p329)
 	return( @expr_list ? 'HAVING '.$expr_list[0] : '' );
 }
 
+######################################################################
+
 sub build_query_window_clause { # SQL-2003, 7.11 "<window clause>" (p331)
 	# Function returns empty string if view has no window clause.
 	my ($builder, $view_node) = @_;
 	# TODO: I need to first update SQL::SyntaxModel a bit re the various 
 	# parts of a <window clause>, then fix here.  Meanwhile, I dump what I got.
-	# Also see SQL-2003, 10.10 "<sort specification list>" for future reference.
+	# Also see SQL-2003, 10.10 "<sort specification list>" (p517) for future reference.
 	my @order_list = 
 		map { $builder->build_expr( $_ ) } 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'ORDER' } 
@@ -1185,15 +1173,22 @@ sub build_query_window_clause { # SQL-2003, 7.11 "<window clause>" (p331)
 		(@skipr_list ? 'OFFSET '.$skipr_list[0] : '') );
 }
 
-sub build_query_query_spec { # SQL-2003, 7.12 "<query specification>" (p341)
-	my ($builder, $view_node) = @_;
+######################################################################
+
+sub build_query_query_spec { 
+	# SQL-2003, 7.12 "<query specification>" (p341)
+	# SQL-2003, 14.5 "<select statement: single row>" (p824)
+	my ($builder, $view_node, $make_into_clause) = @_;
 	# Method assumes that $view_node.view_type ne 'COMPOUND'; 
 	# method should never be invoked for those kinds of views.
 	my $set_quantifier = $view_node->get_literal_attribute( 'distinct_rows' ) ? 'DISTINCT' : 'ALL';
 	my $select_list = $builder->build_query_select_list( $view_node );
+	my $into_clause = $make_into_clause ? $builder->build_query_into_clause( $view_node ) : '';
 	my $table_expression = $builder->build_query_table_expr( $view_node );
-	return( 'SELECT '.$set_quantifier.' '.$select_list.' '.$table_expression );
+	return( 'SELECT '.$set_quantifier.' '.$select_list.' '.$into_clause.' '.$table_expression );
 }
+
+######################################################################
 
 sub build_query_select_list { # SQL-2003, 7.12 "<query specification>" (p341)
 	# Method returns comma-delimited list expression where each list item is a 
@@ -1240,6 +1235,30 @@ sub build_query_select_list { # SQL-2003, 7.12 "<query specification>" (p341)
 	}
 }
 
+######################################################################
+
+sub build_query_into_clause { 
+	# SQL-2003, 14.3 "<fetch statement>" (p817)
+	# SQL-2003, 14.5 "<select statement: single row>" (p824)
+	# Function assumes that there is an 'INTO' view_expr Node for every 
+	# 'RESULT' view_expr Node, and that view.match_all_cols is false.
+	my ($builder, $view_node) = @_;
+	my %col_nodes_to_into_nodes = 
+		map { ($_->get_node_ref_attribute( 'view_col' ) => $_) } 
+		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'INTO' } 
+		@{$view_node->get_child_nodes( 'view_expr' )};
+	my @target_list = ();
+	foreach my $view_col_node (@{$view_node->get_child_nodes( 'view_col' )}) {
+		my $into_expr_node = $col_nodes_to_into_nodes{$view_col_node};
+		push( @target_list, $builder->build_identifier_element( 
+		$into_expr_node->get_node_ref_attribute( 'routine_arg' ) || 
+		$into_expr_node->get_node_ref_attribute( 'routine_var' ) ) );
+	}
+	return( 'INTO '.join( ', ', @target_list ) );
+}
+
+######################################################################
+
 sub build_query_query_expr { # SQL-2003, 7.13 "<query expression>" (p351)
 	my ($builder, $view_node) = @_;
 	my $view_type = $view_node->get_enumerated_attribute( 'view_type' );
@@ -1248,9 +1267,6 @@ sub build_query_query_expr { # SQL-2003, 7.13 "<query expression>" (p351)
 		my @with_list = ();
 		my $recursive = 0;
 		foreach my $child_view_node (@{$view_node->get_child_nodes( 'view' )}) {
-			unless( $child_view_node->get_enumerated_attribute( 'name' ) ) {
-				next; # ? AREN'T VIEW NAMES MANDATORY NOW ? THEN REMOVE THIS
-			}
 			if( $child_view_node->get_enumerated_attribute( 'view_type' ) eq 'RECURSIVE' ) {
 				$recursive = 1;
 			}
@@ -1269,7 +1285,10 @@ sub build_query_query_expr { # SQL-2003, 7.13 "<query expression>" (p351)
 	}
 	my $query_expression_body = $builder->build_query_query_expr_body( $view_node );
 	return( $with_clause.$query_expression_body );
+	# TODO: SQL-2003, 7.14 "<search or cycle clause>" (p365).
 }
+
+######################################################################
 
 sub build_query_query_expr_body { # SQL-2003, 7.13 "<query expression>" (p351)
 	my ($builder, $view_node) = @_;
@@ -1296,9 +1315,30 @@ sub build_query_query_expr_body { # SQL-2003, 7.13 "<query expression>" (p351)
 	}
 }
 
+######################################################################
+
 sub build_query_subquery { # SQL-2003, 7.15 "<subquery>" (p370)
-	my ($builder, $view_node) = @_;
-	return( '('.$builder->build_query_query_expr( $view_node ).')' );
+	my ($builder, $expr_node) = @_;
+	my $cview = $expr_node->get_enumerated_attribute( 'call_view' );
+	if( $builder->{$PROP_INLINE_SUBQ} ) {
+		# Embed an anonymous subquery; argument passing is not yet supported.
+		my $query_expression = $builder->build_query_query_expr( $cview );
+		return( '('.$query_expression.')' );
+	} else {
+		# Call a named subquery; argument passing is supported.
+		my $cview_name = $builder->build_identifier_schema_obj( $cview );
+		my %cview_arg_exprs = 
+			map { ($_->get_node_ref_attribute( 'call_view_arg' ) => $_) } 
+			@{$expr_node->get_child_nodes()}; # gets child view_expr Nodes
+		# Note: The build_expr() calls are done below to ensure the arg values are 
+		# defined in the same order they are output; this lets optional insertion 
+		# of positionally determined bind vars (and their mapping) to work right.
+		my $arg_val_list = join( ', ', 
+			map { $cview_arg_exprs{$_} ? $builder->build_expr( $cview_arg_exprs{$_} ) : 'NULL' } 
+			@{$cview->get_child_nodes( 'view_arg' )} );
+		return( $cview_name.($arg_val_list ? '('.$arg_val_list.')' : '') );
+	}
+	# Note: Direct calls to schema object tables or views is not supported outside of 'FROM'.
 }
 
 ######################################################################
@@ -1365,6 +1405,7 @@ sub build_schema_sequence_delete { # SQL-2003, 11.64 "<drop sequence generator s
 ######################################################################
 
 sub build_schema_table_create { 
+	# SQL-2003, 6.2 "<field definition>" (p173)
 	# SQL-2003, 11.3 "<table definition>" (p525)
 	# SQL-2003, 11.4 "<column definition>" (p536)
 	# SQL-2003, 11.5 "<default clause>" (p541)
@@ -1390,7 +1431,7 @@ sub build_schema_table_create {
 		my $auto_inc = $table_col_node->get_literal_attribute( 'auto_inc' );
 		my $default_seq_node = $table_col_node->get_node_ref_attribute( 'default_seq' );
 		push( @table_col_sql, 
-			$table_col_name.' '.$domain_sql. # line corres to SQL-2003, 6.2 <field definition>
+			$table_col_name.' '.$domain_sql.
 			($mandatory ? ' NOT NULL' : ' NULL').
 			(defined( $default_val ) ? ' DEFAULT '.$builder->quote_literal( 
 				$default_val, $domain_node->get_enumerated_attribute( 'base_type' ) ) : '').
@@ -1564,6 +1605,8 @@ sub build_access_role_delete { # SQL-2003, 12.6 "<drop role statement>" (p746)
 	return( 'DROP ROLE '.$role_name.';' );
 }
 
+######################################################################
+
 sub build_access_grant { 
 	# Function returns empty string if given grantee has no privileges.
 	# SQL-2003, 12.1 "<grant statement>" (p731)
@@ -1636,6 +1679,7 @@ sub build_access_revoke {
 sub build_dmanip_routine_body { 
 	# Corresponds to these sections:
 	# ?
+	# SQL-2003, 13.5 "<SQL procedure statement>" (p790)
 	# SQL-2003, 14.1 "<declare cursor>" (p809)
 	my ($builder, $routine_node, $is_atomic) = @_;
 	my $is_ora_routines = $builder->{$PROP_ORA_ROUTINES};
@@ -1660,7 +1704,7 @@ sub build_dmanip_routine_body {
 			# Not implemented yet.
 		} elsif( $var_type eq 'ARRAY' ) {
 			# Not implemented yet.
-		} else { # $var_type eq 'CURSOR'
+		} elsif( $var_type eq 'CURSOR' ) {
 			my $view_node = $rtn_var_node->get_node_ref_attribute( 'curs_view' );
 			my $query_expr = $builder->build_query_query_expr( $view_node );
 			my $order_by_clause = $builder->build_query_window_clause( $view_node );
@@ -1670,7 +1714,7 @@ sub build_dmanip_routine_body {
 			# TODO: sensitivity, scrollability, holdability, returnability
 			my $cursor_spec = $query_expr.' '.$order_by_clause.' '.$updatability_clause;
 			push( @rtn_var_declare_sql, 'DECLARE '.$var_name.' CURSOR FOR '.$cursor_spec.';' );
-		}
+		} else {}
 	}
 	my @rtn_stmt_sql = ();
 	foreach my $rtn_stmt_node (@{$routine_node->get_child_nodes( 'routine_stmt' )}) {
@@ -1687,7 +1731,11 @@ sub build_dmanip_routine_body {
 	) );
 }
 
+######################################################################
+
 sub build_dmanip_routine_stmt { 
+	# SQL-2003, 13.5 "<SQL procedure statement>" (p790)
+	# SQL-2003, 15.2 "<return statement>" (p886)
 	my ($builder, $rtn_stmt_node) = @_;
 	my $stmt_type = $rtn_stmt_node->get_enumerated_attribute( 'stmt_type' );
 	if( $stmt_type eq 'BLOCK' ) {
@@ -1706,62 +1754,55 @@ sub build_dmanip_routine_stmt {
 		}
 	} elsif( $stmt_type eq 'RETURN' ) {
 		my $child_exprs = $rtn_stmt_node->get_child_nodes();
-		return( 'RETURN('.$builder->build_expr( $child_exprs->[0] ).');' );
+		return( 'RETURN '.$builder->build_expr( $child_exprs->[0] ).';' ); # no parens in standard
 	} elsif( $stmt_type eq 'SPROC' ) {
 		return( $builder->build_dmanip_call_sproc( $rtn_stmt_node ) );
-	} else { # $stmt_type eq 'UPROC'
+	} elsif( $stmt_type eq 'UPROC' ) {
 		return( $builder->build_dmanip_call_uproc( $rtn_stmt_node ) );
-	}
+	} else {}
 }
+
+######################################################################
 
 sub build_dmanip_call_sproc {
 	# Corresponds to these sections:
 	# SQL-2003, 14.2 "<open statement>" (p815)
 	# SQL-2003, 14.3 "<fetch statement>" (p817)
 	# SQL-2003, 14.4 "<close statement>" (p822)
-	# SQL-2003, 14.5 "<select statement: single row>" (p824)
-	# SQL-2003, 14.7 "<delete statement: searched>" (p831)
-	# SQL-2003, 14.8 "<insert statement>" (p834)
-	# SQL-2003, 14.11 "<update statement: searched>" (p849)
 	my ($builder, $rtn_stmt_node) = @_;
 	my $sproc = $rtn_stmt_node->get_enumerated_attribute( 'call_sproc' );
-	my $child_exprs = $rtn_stmt_node->get_child_nodes( 'routine_expr' );
 	if( $sproc eq 'CURSOR_OPEN' ) { # opens a select cursor for reading from (or performs a select if in right context)
-		my $cursor_name = $builder->build_dmanip_stmt_curs_name( $rtn_stmt_node );
+		my $cursor_name = $builder->build_identifier_element( 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_arg' ) || 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_var' ) );
 		return( 'OPEN '.$cursor_name.';' );
 	} elsif( $sproc eq 'CURSOR_CLOSE' ) { # closes a select cursor when you're done with it
-		my $cursor_name = $builder->build_dmanip_stmt_curs_name( $rtn_stmt_node );
+		my $cursor_name = $builder->build_identifier_element( 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_arg' ) || 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_var' ) );
 		return( 'CLOSE '.$cursor_name.';' );
 	} elsif( $sproc eq 'CURSOR_FETCH' ) { # reads a row from an opened cursor and puts it in a row/list variable
-		my $cursor_name = $builder->build_dmanip_stmt_curs_name( $rtn_stmt_node );
+		my $cursor_name = $builder->build_identifier_element( 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_arg' ) || 
+			$rtn_stmt_node->get_node_ref_attribute( 'curs_var' ) );
 		my $fetch_orient = ''; # TODO: the explicit <fetch orientation> options; NEXT is default
 		my $view_node = ($rtn_stmt_node->get_node_ref_attribute( 'curs_arg' ) || 
 			$rtn_stmt_node->get_node_ref_attribute( 'curs_var' )
 			)->get_node_ref_attribute( 'curs_view' );
-		my $into_clause = $builder->build_dmanip_into_clause( $view_node );
+		my $into_clause = $builder->build_query_into_clause( $view_node );
 		return( 'FETCH '.$fetch_orient.' FROM '.$cursor_name.' '.$into_clause.';' );
 	} elsif( $sproc eq 'SELECT_INTO' ) { # fetches one row from a table/view and puts it in a row/list variable
 		my $view_node = $rtn_stmt_node->get_node_ref_attribute( 'view_for_dml' );
-		my $select_list = $builder->build_query_select_list( $view_node );
-		my $into_clause = $builder->build_dmanip_into_clause( $view_node );
-		my $table_expression = $builder->build_query_table_expr( $view_node );
-		return( 'SELECT '.$select_list.' '.$into_clause.' '.$table_expression.';' );
+		return( $builder->build_query_query_spec( $view_node, 1 ).';' );
 	} elsif( $sproc eq 'INSERT' ) { # inserts a row into a table/view
 		my $view_node = $rtn_stmt_node->get_node_ref_attribute( 'view_for_dml' );
-		my $table_name = $builder->build_dmanip_stmt_table_or_view_name( $view_node );
-		my $insert_cols_and_src = $builder->build_dmanip_set_clause( $view_node ); # TODO: fix this
-		return( 'INSERT INTO '.$table_name.' '.$insert_cols_and_src.';' );
+		return( $builder->build_dmanip_insert_stmt( $view_node ) );
 	} elsif( $sproc eq 'UPDATE' ) { # updates a row in a table/view
 		my $view_node = $rtn_stmt_node->get_node_ref_attribute( 'view_for_dml' );
-		my $table_name = $builder->build_dmanip_stmt_table_or_view_name( $view_node );
-		my $set_clause = $builder->build_dmanip_set_clause( $view_node );
-		my $where_clause = $builder->build_query_where_clause( $view_node );
-		return( 'UPDATE '.$table_name.' '.$set_clause.' '.$where_clause.';' );
+		return( $builder->build_dmanip_update_stmt( $view_node ) );
 	} elsif( $sproc eq 'DELETE' ) { # deletes a row in a table/view
 		my $view_node = $rtn_stmt_node->get_node_ref_attribute( 'view_for_dml' );
-		my $table_name = $builder->build_dmanip_stmt_table_or_view_name( $view_node );
-		my $where_clause = $builder->build_query_where_clause( $view_node );
-		return( 'DELETE FROM '.$table_name.' '.$where_clause.';' );
+		return( $builder->build_dmanip_delete_stmt( $view_node ) );
 	} elsif( $sproc eq 'COMMIT' ) { # commits the current transaction, then starts a new one
 		return( 'COMMIT;' );
 	} elsif( $sproc eq 'ROLLBACK' ) { # rolls back the current transaction, then starts a new one
@@ -1769,55 +1810,61 @@ sub build_dmanip_call_sproc {
 	} else {} # There are a bunch more that aren't implemented yet.
 }
 
-sub build_dmanip_stmt_curs_name {
-	my ($builder, $rtn_stmt_node) = @_;
-	return( $builder->build_identifier_element( 
-		$rtn_stmt_node->get_node_ref_attribute( 'curs_arg' ) || 
-		$rtn_stmt_node->get_node_ref_attribute( 'curs_var' ) ) );
-}
+######################################################################
 
-sub build_dmanip_stmt_table_or_view_name {
+sub build_dmanip_src_schema_object_name {
 	my ($builder, $view_node) = @_;
 	my $view_type = $view_node->get_enumerated_attribute( 'view_type' );
-	if( $view_type eq 'MATCH' or $view_type eq 'SINGLE' ) {
-		# The view is relatively simple and has a single source; we should be 
-		# able to update against its source directly.
-		my $view_src_node = $view_node->get_child_nodes( 'view_src' )->[0];
-		if( my $table_node = $view_src_node->get_node_ref_attribute( 'match_table' ) ) {
-			# Simple case; source is a single table, use it directly.
-			return( $builder->build_identifier_element( $table_node ) );
-		} else { 
-			# Source is a single sub-query in the "from" clause; try to match its source.
-			my $view_node = $view_src_node->get_node_ref_attribute( 'match_view' );
-			return( $builder->build_dmanip_stmt_table_or_view_name( $view_node ) );
+	my @view_src_nodes = $view_node->get_child_nodes( 'view_src' );
+	if( @view_src_nodes == 0 ) {
+		return( undef ); # No source at all.
+	} elsif( $view_type eq 'MATCH' or $view_type eq 'SINGLE' or @view_src_nodes == 1 ) {
+		my $object_node = $view_src_nodes[0]->get_node_ref_attribute( 'match_table' ) || 
+			$view_src_nodes[0]->get_node_ref_attribute( 'match_view' );
+		if( $object_node->get_node_ref_attribute( 'schema' ) ) {
+			# The only source is a schema object, table or named view; use it directly.
+			return( $builder->build_identifier_schema_obj( $view_node ) );
+		} else {
+			# The only source seems to be a sub-query in "from".
+			return( undef ); # Adding recursion in all necessary places too complicated for now.
 		}
-	} else {
-		# Assume view itself is writeable; we take easy way out since multple sources in "from".
-		# TODO: Add alternative if database engine can't do writeable views.
-		return( $builder->build_identifier_element( $view_node ) );
+	} else { # @view_src_nodes >= 2
+		return( undef ); # Manual updates against multiple sources too complicated for now.
 	}
 }
 
-sub build_dmanip_into_clause { # SQL-2003, 14.3 "<fetch statement>" (p817)
+######################################################################
+
+sub build_dmanip_insert_stmt { 
+	# SQL-2003, 7.3 "<table value constructor>" (p298)
+	# SQL-2003, 14.8 "<insert statement>" (p834)
 	my ($builder, $view_node) = @_;
-	my %into_expr_nodes = 
-		map { ($_->get_node_ref_attribute( 'view_col' ) => $_) } 
-		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'INTO' } 
+	$builder->{$PROP_UNWRAP_VIEWS} = 1;
+	my $object_name = $builder->build_dmanip_src_schema_object_name( $view_node );
+	my @set_expr_nodes = 
+		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'SET' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
-	my @target_list = ();
-	foreach my $view_col_node (@{$view_node->get_child_nodes( 'view_col' )}) {
-		my $into_expr_node = $into_expr_nodes{$view_col_node};
-		push( @target_list, scalar( $builder->build_identifier_element( 
-		$into_expr_node->get_node_ref_attribute( 'routine_arg' ) || 
-		$into_expr_node->get_node_ref_attribute( 'routine_var' ) ) ) );
+	my @set_cols_list = ();
+	my @set_values_list = ();
+	foreach my $expr_node (@set_expr_nodes) {
+		push( @set_cols_list, $builder->build_identifier_element( 
+			$expr_node->get_node_ref_attribute( 'set_view_col' ) ) );
+		push( @set_values_list, $builder->build_expr( $expr_node ) );
 	}
-	return( 'INTO '.join( ', ', @target_list ) );
+	my $insert_cols_and_src = '('.join( ', ', @set_cols_list ).') '.
+		'VALUES ('.join( ', ', @set_values_list ).')';
+	$builder->{$PROP_UNWRAP_VIEWS} = 0;
+	return( 'INSERT INTO '.$object_name.' '.$insert_cols_and_src.';' );
 }
 
-sub build_dmanip_set_clause { 
+######################################################################
+
+sub build_dmanip_update_stmt { 
 	# SQL-2003, 14.11 "<update statement: searched>" (p849)
 	# SQL-2003, 14.12 "<set clause list>" (p853)
 	my ($builder, $view_node) = @_;
+	$builder->{$PROP_UNWRAP_VIEWS} = 1;
+	my $object_name = $builder->build_dmanip_src_schema_object_name( $view_node );
 	my @set_expr_nodes = 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'SET' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
@@ -1828,10 +1875,28 @@ sub build_dmanip_set_clause {
 		my $update_source = $builder->build_expr( $expr_node );
 		push( @set_clause_list, $set_target.' = '.$update_source );
 	}
-	return( 'SET '.join( ', ', @set_clause_list ) );
+	my $set_clause = 'SET '.join( ', ', @set_clause_list );
+	my $where_clause = $builder->build_query_where_clause( $view_node );
+	$builder->{$PROP_UNWRAP_VIEWS} = 0;
+	return( 'UPDATE '.$object_name.' '.$set_clause.' '.$where_clause.';' );
 }
 
-sub build_dmanip_call_uproc {
+######################################################################
+
+sub build_dmanip_delete_stmt { # SQL-2003, 14.7 "<delete statement: searched>" (p831)
+	my ($builder, $view_node) = @_;
+	$builder->{$PROP_UNWRAP_VIEWS} = 1;
+	my $object_name = $builder->build_dmanip_src_schema_object_name( $view_node );
+	my $where_clause = $builder->build_query_where_clause( $view_node );
+	$builder->{$PROP_UNWRAP_VIEWS} = 0;
+	return( 'DELETE FROM '.$object_name.' '.$where_clause.';' );
+}
+
+######################################################################
+
+sub build_dmanip_call_uproc { 
+	# SQL-2003 ... <routine invocation> ...
+	# SQL-2003, 15.1 "<call statement>" (p885)
 	my ($builder, $rtn_stmt_node) = @_;
 	my $uproc = $rtn_stmt_node->get_enumerated_attribute( 'call_uproc' );
 	my $uproc_name = $builder->build_identifier_schema_obj( $uproc );
@@ -1844,8 +1909,8 @@ sub build_dmanip_call_uproc {
 	my $arg_val_list = join( ', ', 
 		map { $uproc_arg_exprs{$_} ? $builder->build_expr( $uproc_arg_exprs{$_} ) : 'NULL' } 
 		@{$uproc->get_child_nodes( 'routine_arg' )} );
-	return( $uproc_name.($arg_val_list ? '('.$arg_val_list.')' : '').';' );
-	# Note: see 15.1 call statement p885
+	# <call statement> ::= CALL <routine invocation>
+	return( 'CALL '.$uproc_name.($arg_val_list ? '('.$arg_val_list.')' : '').';' );
 }
 
 ######################################################################
@@ -1932,10 +1997,7 @@ run-time SQL bind variables (using a '?' for each instance); since DBI's
 arguments are positional and SQL::SyntaxModel's are named, this class will also
 return a map for the SQL that says what order to give the named values to DBI.
 
-I<CAVEAT: THIS MODULE IS "UNDER CONSTRUCTION" AND MANY FEATURES DESCRIBED BY
-SQL::SyntaxModel ARE NOT YET IMPLEMENTED.  ALSO, MOST FEATURES THAT ARE
-IMPLEMENTED ARE NOT MENTIONED IN THIS DOCUMENTATION'S METHODS YET; MANY METHODS
-ARE MISSING.>
+I<CAVEAT: SIGNIFICANT PORTIONS OF THIS MODULE ARE NOT WRITTEN YET.>
 
 =head1 CONSTRUCTOR FUNCTIONS AND METHODS
 
@@ -1952,9 +2014,12 @@ Rosetta::Utility::SQLBuilder (or subclass) object.  All of this object's
 properties are set to default values that should cause the object to generate
 SQL in a SQL-2003 standard conforming manner.
 
-=head1 PROPERTY ACCESSOR METHODS
+=head1 STATIC CONFIGURATION PROPERTY ACCESSOR METHODS
 
-These methods are stateful and can only be invoked from this module's objects.
+These methods are stateful and can only be invoked from this module's objects. 
+This set of properties are generally set once at the start of a SQLBuilder
+object's life and aren't changed later, since they are generally static
+configuration data.
 
 =head2 positional_bind_vars([ NEW_VALUE ])
 
@@ -1968,7 +2033,10 @@ object makes will include bind variable declarations in named format; eg:
 ":FOO" and ":BAR".  If this property is true, then bind variables are declared
 in positional format; they will all be "?" (as the DBI module specifies), and
 the SQL-making method will also return an array ref with maps bind variable
-names to the positional "?" in the new SQL.
+names to the positional "?" in the new SQL.  This property simply indicates the
+database engine's capability; it does not say "act now".  The "positional bind
+var map array" property can be set regardless of the engine's capability, but
+SQLBuilder code will only do something with it if "positional bind vars" is true.
 
 =head2 delimited_identifiers([ NEW_VALUE ])
 
@@ -2167,6 +2235,66 @@ value of this property is '__' (a double underscore).  So, for example, a
 parent view named 'foo' having an inner view named 'bar' will produce a
 temporary table named 'foo__bar' when an emulation happens.
 
+=head1 DYNAMIC STATE MAINTENANCE PROPERTY ACCESSOR METHODS
+
+These methods are stateful and can only be invoked from this module's objects.
+Each of these contains either very short term configuration options (meant to
+have the life of about one external build* method call) that are only set
+externally as usual, or some may also be set or changed by SQLBuilder code, and
+can be used effectively as extra output from the build* method; they maintain
+state for a build* invocation.
+
+=head2 make_bind_vars([ NEW_VALUE ])
+
+	my $old_val = $builder->make_bind_vars();
+	$builder->make_bind_vars( 1 );
+
+This getter/setter method returns this object's "make bind vars" boolean
+property; if the optional NEW_VALUE argument is defined, this property is first
+set to that value.  This property helps manage the fact that routine_arg SSM
+Nodes can have dual purposes when being converted to SQL.  With an ordinary
+stored routine, they turn into normal argument declarations and are used by SQL
+routine code by name as usual.  With an ANONYMOUS routine, or BLOCKs inside
+those, they instead represent application bind variables, which are formatted
+differently when put in SQL.  This property stores the current state as to
+whether any referenced routine_arg should be turned into bind vars or not. 
+This property should be set false (the default) when we are in an ordinary
+routine, and it should be set true when we are in an ANONYMOUS routine.
+
+=head2 get_positional_bind_var_map_array()
+
+This "getter" method returns a new array ref having a copy of this object's
+"positional bind var map array" array property.  This property is explicitely
+emptied by external code, by invoking the clear_positional_bind_var_map_array()
+method, prior to that code requesting that we build SQL which contains
+positional bind variables.  When we build said SQL, each time we are to insert
+a bind variable, we simply put a "?" in the SQL, and we add to this array the
+name of the routine_arg whose value is supposed to substitute at exec time. As
+soon as said SQL is made and returned, external code reads this array's values
+using the get_positional_bind_var_map_array() method.
+
+=head2 clear_positional_bind_var_map_array()
+
+This "setter" method empties this object's "positional bind var map array"
+array property.  See the previous method's documentation for when to use it.
+
+=head2 unwrap_views([ NEW_VALUE ])
+
+	my $old_val = $builder->unwrap_views();
+	$builder->unwrap_views( 1 );
+
+This getter/setter method returns this object's "unwrap views" boolean
+property; if the optional NEW_VALUE argument is defined, this property is first
+set to that value.  This property helps manage the fact that when we are making
+INSERT or UPDATE or DELETE statements, these operate on a single table or named
+view by its original (not correlation) name.  The outer view that stores the
+details of the I|U|D is "unwrapped".  This property stores the current state as
+to whether any view_src_col should be referenced by their original names or
+not; false (the default) means to use the correlation name, and true means to
+use the original.  External code which is working with I|U|D statements, or
+several functions in this module, would set this true before calling this
+module's generic SQL making functions, and then set it false just afterwards.  
+
 =head1 SQL LEXICAL ELEMENT CONSTRUCTION METHODS
 
 These "getter" methods each do trivial SQL construction; each one returns what
@@ -2285,7 +2413,20 @@ This method makes an identifier chain that is used within a query/view
 expression to refer to a source table/view column that we are taking the value
 of.  Assuming that all view sources have local correlation names, the
 identifier chain will usually look like '<correlation name>.<original
-table/view column name>'.
+table/view column name>'.  (As an exception, this method will output just the
+unqualified column name when this object's "unwrap views" property is true, as
+that format works best in WHERE/etc clauses of INSERT|UPDATE|DELETE.)
+
+=head2 build_identifier_fake_view_src_col( VIEW_SRC_NODE, MATCH_COL_NODE )
+
+	my $sql = $builder->build_identifier_fake_view_src_col( $view_src_node, $match_col_node );
+
+This method is like build_identifier_view_src_col() except that it does not
+require you to provide an actual "view_src_col" Node as input.  This method is
+used to implement the "match all source columns" feature in "view" Nodes, a
+short-hand that saves developers from having to specify all of a view's columns
+individually.  You instead provide the "view_src" and "table_col"/"view_col"
+Nodes that the "view_src_col" would have specified internally.
 
 =head2 build_identifier_temp_table_for_emul( INNER_VIEW_NODE )
 
@@ -2297,10 +2438,20 @@ the table would hold intermediate values.  See the
 emulated_query_temp_table_join_chars() method documentation for more details on
 what the new identifier name looks like.
 
-=head1 SCALAR EXPRESSION SQL CONSTRUCTION METHODS
+=head1 SCALAR EXPRESSION AND PREDICATE SQL CONSTRUCTION METHODS
 
 These "getter" methods build SQL expressions and correspond to the subsections 
-of SQL-2003 Foundation section 6 "Scalar expressions" (p161).
+of SQL-2003 Foundation section 6 "Scalar expressions" (p161) and 
+section 8 "Predicates" (p373).
+
+=head2 build_expr( EXPR_NODE )
+
+	my $sql = $builder->build_expr( $expr_node );
+
+This method takes any kind of "expression" Node ("view_expr" or "routine_expr")
+and builds the corresponding SQL fragment.  Sometimes this method is simply a
+wrapper for other build_expr_*() methods, which are called for specific
+'expr_type' values, but other times this method does the work by itself.
 
 =head2 build_expr_predef_data_type( DOMAIN_NODE )
 
@@ -2310,82 +2461,440 @@ This method takes a 'domain' SSM Node and builds a corresponding SQL fragment
 such as would be used in the "data type" reference of a table column
 definition.  Example return values are "VARCHAR(40)", "DECIMAL(7,2)", "BOOLEAN"
 "INTEGER UNSIGNED".  Most of the "data type customizations" property elements
-are used to customize this method.  See SQL-2003 6.1 "<data type>".
+are used to customize this method.  See SQL-2003 6.1 "<data type>" (p161).
+
+=head2 build_expr_data_type_or_domain_name( DOMAIN_NODE )
+
+	my $sql = $builder->build_expr_data_type_or_domain_name( $domain_node );
+
+This method takes a 'domain' SSM Node and returns one of two kinds of SQL
+fragments, depending on whether or not the current database engine supports
+"domain" schema objects (and we are using them).  If it does then this method
+returns the identifier of the domain schema object to refer to; if it does
+not, then this method instead returns the data type definition to use.  See 
+SQL-2003, 11.4 "<column definition>" (p536).
+
+=head2 build_expr_cast_spec( EXPR_NODE )
+
+	my $sql = $builder->build_expr_cast_spec( $expr_node );
+
+This method takes an "*_expr" Node whose 'expr_type' is 'CAST' and generates
+the corresponding "CAST( <operand> AS <target> )" SQL fragment, if the database
+engine supports the syntax; it generates alternative casting expressions
+otherwise, such as Oracle 8's "TO_*(...)" functions.  See SQL-2003, 6.12 "<cast
+specification>" (p201).
+
+=head2 build_expr_seq_next( SEQUENCE_NODE )
+
+	my $sql = $builder->build_expr_seq_next( $sequence_node );
+
+This method takes a "sequence" Node and generates the appropriate SQL
+expression for reading the next value from the corresponding schema object.
+See SQL-2003, 6.13 "<next value expression>" (p217).
+
+=head2 build_expr_call_sfunc( EXPR_NODE )
+
+	my $sql = $builder->build_expr_call_sfunc( $expr_node );
+
+This method takes an "*_expr" Node whose 'expr_type' is 'SFUNC' and generates
+the corresponding "built-in function" call, which includes basic predicates
+(comparison or assertion), math operations, string operations, logic gates and
+switches, aggregate functions, and olap functions.  Child "*_expr" Nodes
+provide the argument values to give said "built-in function), if there are any.
+
+=head2 build_expr_call_ufunc( EXPR_NODE )
+
+	my $sql = $builder->build_expr_call_ufunc( $expr_node );
+
+This method takes an "*_expr" Node whose 'expr_type' is 'UFUNC' and generates a
+call to a named FUNCTION routine schema object.  Child "*_expr" Nodes provide
+the argument values to give said FUNCTION, if there are any.
 
 =head1 QUERY EXPRESSION SQL CONSTRUCTION METHODS
 
-These "getter" methods build SQL expressions and correspond to the subsections 
-of SQL-2003 Foundation section 7 "Query expressions" (p293).
+These "getter" methods build SQL query expressions and correspond to the
+subsections of SQL-2003 Foundation section 7 "Query expressions" (p293).
+
+=head2 build_query_table_expr( VIEW_NODE )
+
+	my $sql = $builder->build_query_table_expr( $view_node );
+
+This method takes a "view" Node and generates the main body of a query, namely
+the concatenation of these 5 clauses in order: FROM, WHERE, GROUP BY, HAVING,
+and the window clause.  All of these clauses are optional in a query (except
+FROM in most cases); whether or not they are generated is determined by whether
+the given VIEW_NODE comes with definitions for them.  This method is a shim
+that calls 5 separate build_query_*_clause() methods which do the actual work,
+and concatenates the results.  See SQL-2003, 7.4 "<table expression>" (p300).
+
+=head2 build_query_from_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_from_clause( $view_node );
+
+This method takes a "view" Node and generates the FROM clause in the
+corresponding query, if the query has a FROM clause (most do); it returns the
+empty string otherwise.  The query has a FROM clause if it has at least one
+child "view_src" Node; if it has multiple "view_src", then they are all joined
+together based on this view's child "view_join" Nodes, to form a single "joined
+table".  Each "view_src" can be either a table or view schema object, or a call
+to a named subquery (with optional arguments), or an embedded anonymous
+subquery; it is rendered into SQL, by the build_query_table_factor() method,
+with a unique "correlation name" (expression AS name) that every other part of
+this view's query references it with.  Note that this method should never be
+invoked on "COMPOUND" views.  See SQL-2003, 7.5 "<from clause>" (p301) and
+SQL-2003, 7.6 "<table reference>" (p303) and SQL-2003, 7.7 "<joined table>"
+(p312).
+
+=head2 build_query_table_factor( VIEW_SRC_NODE )
+
+	my $sql = $builder->build_query_table_factor( $view_src_node );
+
+This method is invoked by build_query_from_clause() for each "table factor" 
+that needs to be generated in a FROM clause; see that method for context 
+information.  See SQL-2003, 7.6 "<table reference>" (p303).
+
+=head2 build_query_where_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_where_clause( $view_node );
+
+This method takes a "view" Node and generates the WHERE clause in the
+corresponding query, if the query has a WHERE clause; it returns the
+empty string otherwise.  See SQL-2003, 7.8 "<where clause>" (p319).
+
+=head2 build_query_group_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_group_clause( $view_node );
+
+This method takes a "view" Node and generates the GROUP BY clause in the
+corresponding query, if the query has a GROUP BY clause; it returns the
+empty string otherwise.  See SQL-2003, 7.9 "<group by clause>" (p320).
+
+=head2 build_query_having_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_having_clause( $view_node );
+
+This method takes a "view" Node and generates the HAVING clause in the
+corresponding query, if the query has a HAVING clause; it returns the
+empty string otherwise.  See SQL-2003, 7.10 "<having clause>" (p329).
+
+=head2 build_query_window_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_window_clause( $view_node );
+
+This method takes a "view" Node and generates the window clause in the
+corresponding query, if the query has a window clause; it returns the empty
+string otherwise.  The window clause includes things like "ORDER BY", "LIMIT",
+"OFFSET".  See SQL-2003, 7.11 "<window clause>" (p331).
+
+=head2 build_query_query_spec( VIEW_NODE[, MAKE_INTO_CLAUSE] )
+
+	my $sql = $builder->build_query_query_spec( $view_node );
+	my $sql2 = $builder->build_query_query_spec( $view_node, 1 );
+
+This method takes a "view" Node and generates the main body of a query plus a
+SELECT list.  The output looks like "SELECT <set quantifier> <select list>
+<into clause> <table expression>", where "<set quantifier>" is [DISTINCT|ALL],
+and the other three parts are built respectively by: build_query_select_list(),
+build_query_into_clause(), build_query_table_expr().  This method should not be
+called for a COMPOUND view.  The <into clause> is only made if the boolean
+argument MAKE_INTO_CLAUSE is true; that is only intended to happen for root
+SELECT statements inside routines.  See SQL-2003, 7.12 "<query specification>"
+(p341) and SQL-2003, 14.5 "<select statement: single row>" (p824).
+
+=head2 build_query_select_list( VIEW_NODE )
+
+	my $sql = $builder->build_query_select_list( $view_node );
+
+This method takes a "view" Node and generates the "select list" portion of the
+corresponding query, which defines the output columns of the query.  This
+method returns a comma-delimited list expression where each list item is a
+"<derived column> ::= <value expression> AS <column name>".  See SQL-2003, 7.12
+"<query specification>" (p341).
+
+=head2 build_query_into_clause( VIEW_NODE )
+
+	my $sql = $builder->build_query_into_clause( $view_node );
+
+This method takes a "view" Node and generates the INTO clause in a
+corresponding "SELECT ... INTO ..." or "FETCH ... INTO ..." statement.  See
+SQL-2003, 14.3 "<fetch statement>" (p817) and SQL-2003, 14.5 "<select
+statement: single row>" (p824).
+
+=head2 build_query_query_expr( VIEW_NODE )
+
+	my $sql = $builder->build_query_query_expr( $view_node );
+
+This method takes a "view" Node and outputs the definitions of the named
+subqueries for the current query, if the database engine supports named
+subqueries (and we are using them), plus the definition of the main query
+itself, which may be a compound query.  The output may look like "WITH ...
+SELECT ...".  See SQL-2003, 7.13 "<query expression>" (p351).
+
+=head2 build_query_query_expr_body( VIEW_NODE )
+
+	my $sql = $builder->build_query_query_expr_body( $view_node );
+
+This method takes a "view" Node and produces the SQL for a compound query where
+this view's child views are the queries being compounded together, if the
+current view is a COMPOUND view.  If the current view is not a COMPOUND view,
+then this method is simply a shim for build_query_query_spec().  See SQL-2003,
+7.13 "<query expression>" (p351).
+
+=head2 build_query_subquery( EXPR_NODE )
+
+	my $sql = $builder->build_query_subquery( $expr_node );
+
+This method takes a "view_expr" Node whose 'expr_type' is 'CVIEW' and generates
+either a call to a named subquery, or inlines the definition of an anonymous
+subquery, depending on what the database engine supports (and we are using).
+View schema or table objects are not invoked directly here, but can be
+indirectly via a subquery.  Child "*_expr" Nodes provide the argument values to
+give said subquery, if it takes arguments.  See SQL-2003, 7.15 "<subquery>" (p370).
 
 =head1 SCHEMA DEFINITION SQL CONSTRUCTION METHODS
 
 These "getter" methods build SQL strings or fragments thereof that are used
 mainly when declaring or defining (or removing) database schema constructs.
+They correspond to the subsections of SQL-2003 Foundation section 11 "Schema
+definition and manipulation" (p519).
+
+=head2 build_schema_schema_create( SCHEMA_NODE )
+
+	my $sql = $builder->build_schema_schema_create( $schema_node );
+
+This method takes a 'schema' SSM Node and builds a corresponding "CREATE
+SCHEMA" DDL SQL statement, which it returns.  See SQL-2003, 11.1 "<schema
+definition>" (p519).
+
+=head2 build_schema_schema_delete( SCHEMA_NODE )
+
+	my $sql = $builder->build_schema_schema_delete( $schema_node );
+
+This method takes a 'schema' SSM Node and builds a corresponding "DROP SCHEMA"
+DDL SQL statement, which it returns.  See SQL-2003, 11.2 "<drop schema
+statement>" (p522).
+
+=head2 build_schema_domain_create( DOMAIN_NODE )
+
+	my $sql = $builder->build_schema_domain_create( $domain_node );
+
+This method takes a 'domain' SSM Node and builds a corresponding "CREATE
+DOMAIN" DDL SQL statement, which it returns.  See SQL-2003, 11.24 "<domain
+definition>" (p603).
+
+=head2 build_schema_domain_delete( DOMAIN_NODE )
+
+	my $sql = $builder->build_schema_domain_delete( $domain_node );
+
+This method takes a 'domain' SSM Node and builds a corresponding "DROP DOMAIN"
+DDL SQL statement, which it returns.  See SQL-2003, 11.30 "<drop domain
+statement>" (p610).
 
 =head2 build_schema_sequence_create( SEQUENCE_NODE )
 
 	my $sql = $builder->build_schema_sequence_create( $sequence_node );
 
 This method takes a 'sequence' SSM Node and builds a corresponding "CREATE
-SEQUENCE" DDL SQL statement, which it returns.
+SEQUENCE" DDL SQL statement, which it returns.  See SQL-2003, 11.62 "<sequence
+generator definition>" (p726).
 
 =head2 build_schema_sequence_delete( SEQUENCE_NODE )
 
 	my $sql = $builder->build_schema_sequence_delete( $sequence_node );
 
 This method takes a 'sequence' SSM Node and builds a corresponding "DROP
-SEQUENCE" DDL SQL statement, which it returns.
+SEQUENCE" DDL SQL statement, which it returns.  See SQL-2003, 11.64 "<drop
+sequence generator statement>" (p729).
 
 =head2 build_schema_table_create( TABLE_NODE )
 
 	my $sql = $builder->build_schema_table_create( $table_node );
 
-This method takes a 'table' SSM Node and builds a corresponding "CREATE
-TABLE" DDL SQL statement, which it returns.
-
-Incorporates 6.2 "<field definition>".
+This method takes a 'table' SSM Node and builds a corresponding "CREATE TABLE"
+DDL SQL statement, which it returns.  See SQL-2003, 6.2 "<field definition>"
+(p173) and SQL-2003, 11.3 "<table definition>" (p525) and SQL-2003, 11.4
+"<column definition>" (p536) and SQL-2003, 11.5 "<default clause>" (p541) and
+SQL-2003, 11.6 "<table constraint definition>" (p545) and SQL-2003, 11.7
+"<unique constraint definition>" (p547) and SQL-2003, 11.8 "<referential
+constraint definition>" (p549) and SQL-2003, 11.9 "<check constraint
+definition>" (p569).
 
 =head2 build_schema_table_delete( TABLE_NODE )
 
-	my $sql = $builder->build_schema_sequence_delete( $table_node );
+	my $sql = $builder->build_schema_table_delete( $table_node );
 
-This method takes a 'table' SSM Node and builds a corresponding "DROP
-TABLE" DDL SQL statement, which it returns.
+This method takes a 'table' SSM Node and builds a corresponding "DROP TABLE"
+DDL SQL statement, which it returns.  See SQL-2003, 11.21 "<drop table
+statement>" (p587).
 
 =head2 build_schema_view_create( VIEW_NODE )
 
 	my $sql = $builder->build_schema_view_create( $view_node );
 
-This method takes a 'view' SSM Node and builds a corresponding "CREATE
-VIEW" DDL SQL statement, which it returns.
+This method takes a 'view' SSM Node and builds a corresponding "CREATE VIEW"
+DDL SQL statement, which it returns.  See SQL-2003, 11.22 "<view definition>"
+(p590).
 
 =head2 build_schema_view_delete( VIEW_NODE )
 
 	my $sql = $builder->build_schema_view_delete( $view_node );
 
-This method takes a 'view' SSM Node and builds a corresponding "DROP
-VIEW" DDL SQL statement, which it returns.
+This method takes a 'view' SSM Node and builds a corresponding "DROP VIEW" DDL
+SQL statement, which it returns.  See SQL-2003, 11.23 "<drop view statement>"
+(p600).
 
 =head2 build_schema_routine_create( ROUTINE_NODE )
 
 	my $sql = $builder->build_schema_routine_create( $routine_node );
 
 This method takes a 'routine' SSM Node and builds a corresponding "CREATE
-ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.
+ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.  See SQL-2003,
+11.39 "<trigger definition>" (p629) and SQL-2003, 11.50 "<SQL-invoked routine>"
+(p675).
 
 =head2 build_schema_routine_delete( ROUTINE_NODE )
 
 	my $sql = $builder->build_schema_routine_delete( $routine_node );
 
 This method takes a 'routine' SSM Node and builds a corresponding "DROP
-ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.
+ROUTINE/PROCEDURE/FUNCTION" DDL SQL statement, which it returns.  See SQL-2003,
+11.40 "<drop trigger statement>" (p633) and SQL-2003, 11.52 "<drop routine
+statement>" (p703).
 
-=head1 SQL CONSTRUCTION METHODS
+=head1 ACCESS CONTROL SQL CONSTRUCTION METHODS
 
-I<This documentation isn't written yet.  Meanwhile, look at the source code for
-this module.  The property getters/setters appear first, and the SQL building
-methods appear below them.  Also see source of Rosetta::Engine::Generic, which
-uses this module.>
+These "getter" methods build SQL statements that are used mainly when declaring
+users or roles and their permissions.  They correspond to the subsections of
+SQL-2003 Foundation section 12 "Access control" (p731).  Note that
+SQL::SyntaxModel assigns privileges to roles, and roles to users; privileges
+are not assigned to users directly.
+
+=head2 build_access_role_create( ROLE_NODE )
+
+	my $sql = $builder->build_access_role_create( $role_node );
+
+This method takes a 'role' SSM Node and builds a corresponding "CREATE ROLE"
+SQL statement, which it returns.  See SQL-2003, 12.4 "<role definition>"
+(p743).
+
+=head2 build_access_role_delete( ROLE_NODE )
+
+	my $sql = $builder->build_access_role_delete( $role_node );
+
+This method takes a 'role' SSM Node and builds a corresponding "DROP ROLE" SQL
+statement, which it returns.  See SQL-2003, 12.6 "<drop role statement>"
+(p746).
+
+=head2 build_access_grant( GRANTEE_NODE )
+
+	my $sql = $builder->build_access_grant( $grantee_node );
+
+This method takes a "grantee" ("role" or "user") Node and builds a list of
+"GRANT ... TO ..." SQL statements, which it returns as a string.  If the
+grantee is a 'role', then grant statements for all of the privileges assigned
+to that role are created.  If the grantee is a 'user', then grant statements
+for all the roles assigned to that user are created.  This method returns an
+empty string if the grantee has no privileges or roles.  See SQL-2003, 12.1
+"<grant statement>" (p731) and SQL-2003, 12.2 "<grant privilege statement>"
+(p736) and SQL-2003, 12.3 "<privileges>" (p739) and SQL-2003, 12.5 "<grant role
+statement>" (p744).
+
+=head2 build_access_revoke( GRANTEE_NODE )
+
+	my $sql = $builder->build_access_revoke( $grantee_node );
+
+This method takes a "grantee" ("role" or "user") Node and builds a list of
+"REVOKE ... FROM ..." SQL statements, which it returns as a string.  If the
+grantee is a 'role', then revoke statements for all of the privileges assigned
+to that role are created.  If the grantee is a 'user', then revoke statements
+for all the roles assigned to that user are created.  This method returns an
+empty string if the grantee has no privileges or roles.  See SQL-2003, 12.7
+"<revoke statement>" (p747) and SQL-2003, 12.3 "<privileges>" (p739).
+
+=head1 DATA MANIPULATION SQL CONSTRUCTION METHODS
+
+These "getter" methods build SQL statements that are used mainly with cursors
+or routine statements, or when manipulating data, such as insert/update/delete
+commands. They correspond to the subsections of SQL-2003 Foundation sections:
+14 "Data manipulation" (p809), 15 "Control statements", plus part of
+"SQL-client modules" (p765).
+
+=head2 build_dmanip_routine_body( ROUTINE_NODE[, IS_ATOMIC] )
+
+	my $sql = $builder->build_dmanip_routine_body( $routine_node, 1 );
+
+This method takes a 'routine' SSM Node and constructs the main body SQL of that
+routine, which is the BEGIN...END compound statement, all the contained routine
+statements, and the variable declarations; these are all returned as a string.
+This method does not construct a method name or argument list.  It is suitable
+for both named/stored routines and anonymous/application routines.  If the
+optional boolean argument IS_ATOMIC is true, then "BEGIN ATOMIC" is generated
+instead of "BEGIN"; it is used for trigger bodies.  See SQL-2003, 14.1
+"<declare cursor>" (p809) plus other relevant sections of SQL-2003.
+
+=head2 build_dmanip_routine_stmt( STMT_NODE )
+
+	my $sql = $builder->build_dmanip_routine_stmt( $stmt_node );
+
+This method takes a "routine_stmt" Node and builds the corresponding SQL
+statement.  Sometimes this method is simply a wrapper for other
+build_dmanip_*() methods, which are called for specific 'stmt_type' values, but
+other times this method does the work by itself.  See SQL-2003, 13.5 "<SQL
+procedure statement>" (p790) and SQL-2003, 15.2 "<return statement>" (p886).
+
+=head2 build_expr_call_sproc( STMT_NODE )
+
+	my $sql = $builder->build_expr_call_sproc( $stmt_node );
+
+This method takes a "routine_stmt" Node whose 'stmt_type' is 'SPROC' and
+generates the corresponding "built-in procedure" call, which includes creation
+and use of cursors, selects, inserts, updates, deletes, commit, rollback, etc. 
+Child "*_expr" Nodes provide the argument values to give said "built-in
+function), if there are any.  See SQL-2003, 14.2 "<open statement>" (p815) and
+SQL-2003, 14.3 "<fetch statement>" (p817) and SQL-2003, 14.4 "<close
+statement>" (p822).
+
+=head2 build_dmanip_src_schema_object_name( VIEW_NODE )
+
+	my $sql = $builder->build_dmanip_src_schema_object_name( $view_node );
+
+This method takes a "view" Node and returns the schema-qualified name of its
+single source, if it has a single source and that is a schema object (table or
+a named view); it returns the undefined value otherwise.  This function is used
+by the methods which generate INSERT|UPDATE|DELETE statements.
+
+=head2 build_dmanip_insert_stmt( VIEW_NODE )
+
+	my $sql = $builder->build_dmanip_insert_stmt( $view_node );
+
+This method takes a "view" Node and returns the corresponding INSERT SQL
+statement, assuming the view has details for one.  See SQL-2003, 7.3 "<table
+value constructor>" (p298) and SQL-2003, 14.8 "<insert statement>" (p834).
+
+=head2 build_dmanip_update_stmt( VIEW_NODE )
+
+	my $sql = $builder->build_dmanip_update_stmt( $view_node );
+
+This method takes a "view" Node and returns the corresponding UPDATE SQL
+statement, assuming the view has details for one.  See SQL-2003, 14.11 "<update
+statement: searched>" (p849) and SQL-2003, 14.12 "<set clause list>" (p853).
+
+=head2 build_dmanip_delete_stmt( VIEW_NODE )
+
+	my $sql = $builder->build_dmanip_delete_stmt( $view_node );
+
+This method takes a "view" Node and returns the corresponding DELETE SQL
+statement, assuming the view has details for one.  See SQL-2003, 14.7 "<delete
+statement: searched>" (p831).
+
+=head2 build_expr_call_uproc( STMT_NODE )
+
+	my $sql = $builder->build_expr_call_uproc( $stmt_node );
+
+This method takes a "routine_stmt" Node whose 'stmt_type' is 'UPROC' and
+generates a call to a named PROCEDURE routine schema object.  Child "*_expr"
+Nodes provide the argument values to give said PROCEDURE, if there are any. 
+See SQL-2003, 15.1 "<call statement>" (p885).
 
 =head1 UTILITY METHODS
 

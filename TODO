@@ -1,12 +1,10 @@
 NEWER DEVELOPMENT TRACK
 
-r0.05 - Continue to add features to SQLBuilder.pm.  Add function
-documentation for most functions.  Continue to implement Generic.pm.
-
-r0.06 - Start the Rosetta::Validator module(s) and actually test that basic
-stuff like connecting to a database, creating tables, and basic DML functions
-work.  Update the list of 'standard functions' in SQLBuilder (and
-SQL::SyntaxModel) to more closely reflect the SQL-2003 standard, fill other gaps.
+r0.06 - Continue to implement Generic.pm.  Coordinate with the separately
+released Rosetta::Validator module(s) and actually test that basic stuff like
+connecting to a database, creating tables, and basic DML functions work. 
+Update the list of 'standard functions' in SQLBuilder (and SQL::SyntaxModel) to
+more closely reflect the SQL-2003 standard, fill other gaps.
 
 r0.07 - Update Rosetta::Engine::Generic to implement some schema reverse
 engineering functions, such as to scan a database and populate a SSM with

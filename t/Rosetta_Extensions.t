@@ -5,7 +5,7 @@
 
 BEGIN { $| = 1; print "1..1\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Rosetta::Utility::SQLBuilder 0.04;
+use Rosetta::Utility::SQLBuilder 0.05;
 use Rosetta::Engine::Generic 0.02;
 use Rosetta::Engine::L::en 0.02;
 $loaded = 1;
