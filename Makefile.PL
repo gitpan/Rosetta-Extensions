@@ -1,3 +1,7 @@
+#!perl
+
+use 5.008001; use utf8; use strict; use warnings;
+
 use ExtUtils::MakeMaker;
 
 warn <<__endquote;
@@ -13,9 +17,11 @@ __endquote
 
 WriteMakefile(
 	NAME	=> 'Rosetta::Extensions',
-	VERSION => '0.13', # for the distribution itself, not of individual modules
+	VERSION => '0.14', # for the distribution itself, not of individual modules
 	PREREQ_PM => {
-		'Rosetta' => '0.39',
-		'DBI' => '1.45',
+		'Rosetta' => '0.40',
+		'DBI' => '1.46',
 	},
 );
+
+1;

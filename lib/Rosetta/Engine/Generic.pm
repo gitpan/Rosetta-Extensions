@@ -1,36 +1,35 @@
-=head1 NAME
+#!perl
 
-Rosetta::Engine::Generic - A catch-all Engine for any DBI-supported SQL database
-
-=cut
-
-######################################################################
+use 5.008001; use utf8; use strict; use warnings;
 
 package Rosetta::Engine::Generic;
-use 5.006;
-use strict;
-use warnings;
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
-use Rosetta '0.39';
-use DBI '1.45';
-use Rosetta::Utility::SQLBuilder '0.13';
+use Rosetta '0.40';
+use DBI '1.46';
+use Rosetta::Utility::SQLBuilder '0.14';
 
 use base qw( Rosetta::Engine );
 
 ######################################################################
 
+=encoding utf8
+
+=head1 NAME
+
+Rosetta::Engine::Generic - A catch-all Engine for any DBI-supported SQL database
+
 =head1 DEPENDENCIES
 
-Perl Version: 5.006
+Perl Version: 5.008001
 
 Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.39
-	DBI 1.45 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.13
+	Rosetta 0.40
+	DBI 1.46 (highest version recommended)
+	Rosetta::Utility::SQLBuilder 0.14
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -277,7 +276,7 @@ sub prepare {
 		$engine->{$PROP_ENV_PERL_RTN_STRS} ||= {}; # Ditto.
 	}
 
-	if( $routine_node->get_node_ref_attribute( 'pp_routine' ) ) {
+	if( $routine_node->get_primary_parent_attribute()->get_node_type() eq 'routine' ) {
 		# Only externally visible routines can be externally invoked; nested routines are not.
 		$engine->_throw_error_message( 'ROS_G_NEST_RTN_NO_INVOK', { 'RNAME' => $routine_node } );
 	}
@@ -364,7 +363,7 @@ __EOL
 __EOL
 	}
 
-	if( my $schema_node = $routine_node->get_node_ref_attribute( 'pp_schema' ) ) {
+	if( $routine_node->get_primary_parent_attribute()->get_node_type() eq 'schema' ) {
 		# This new Perl routine is to CALL a database stored procedure/function.
 #		$routine_str .= $engine->build_perl_call_to_db_rtn( $interface, $routine_node );
 	} else {
@@ -444,8 +443,8 @@ sub build_perl_stmt {
 	my ($engine, $interface, $routine_node, $routine_stmt_node) = @_;
 	if( my $compound_stmt_routine = $routine_stmt_node->get_node_ref_attribute( 'block_routine' ) ) {
 		# Not implemented yet.
-	} elsif( my $assign_dest_node = $routine_stmt_node->get_node_ref_attribute( 'assign_dest_arg' ) || 
-			$routine_stmt_node->get_node_ref_attribute( 'assign_dest_var' ) ) {
+	} elsif( my $assign_dest_node = $routine_stmt_node->get_node_ref_attribute( 'assign_dest' ) || 
+			$routine_stmt_node->get_node_ref_attribute( 'assign_dest' ) ) {
 		my $assign_dest_name = $engine->build_perl_identifier_rtn_var( $assign_dest_node );
 		my $expr_str = $engine->build_perl_expr( $interface, $routine_node, 
 			$routine_stmt_node->get_child_nodes( 'routine_expr' )->[0] );
@@ -515,14 +514,10 @@ sub build_perl_expr {
 			@{$expr_node->get_child_nodes()} ).')' );
 	} else {
 		if( my $valf_literal = $expr_node->get_literal_attribute( 'valf_literal' ) ) {
-			#my $domain_node = $expr_node->get_node_ref_attribute( 'scalar_domain' );
+			#my $domain_node = $expr_node->get_node_ref_attribute( 'scalar_data_type' );
 			return( $engine->build_perl_literal_cstr( $valf_literal ) );
-		} elsif( my $routine_cxt_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_cxt' ) ) {
-			return( $engine->build_perl_identifier_rtn_var( $routine_cxt_node ) );
-		} elsif( my $routine_arg_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_arg' ) ) {
-			return( $engine->build_perl_identifier_rtn_var( $routine_arg_node ) );
-		} elsif( my $routine_var_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_var' ) ) {
-			return( $engine->build_perl_identifier_rtn_var( $routine_var_node ) );
+		} elsif( my $routine_item_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_item' ) ) {
+			return( $engine->build_perl_identifier_rtn_var( $routine_item_node ) );
 		} elsif( $expr_node->get_enumerated_attribute( 'valf_call_sroutine' ) ) {
 			return( $engine->build_perl_expr_srtn( $interface, $routine_node, $expr_node ) );
 		} elsif( $expr_node->get_node_ref_attribute( 'valf_call_uroutine' ) ) {
@@ -644,20 +639,20 @@ sub build_perl_identifier_element {
 sub build_perl_identifier_rtn {
 	my ($engine, $routine_node, $debug) = @_;
 	my $routine_name = $engine->build_perl_identifier_element( $routine_node, $debug );
-	if( my $schema_node = $routine_node->get_node_ref_attribute( 'pp_schema' ) ) {
-		my $schema_name = $engine->build_perl_identifier_element( $schema_node, $debug );
-		my $cat_node = $schema_node->get_node_ref_attribute( 'pp_catalog' );
+	my $routine_pp_node = $routine_node->get_primary_parent_attribute();
+	my $routine_pp_node_type = $routine_pp_node->get_node_type();
+	if( $routine_pp_node_type eq 'schema' ) {
+		my $schema_name = $engine->build_perl_identifier_element( $routine_pp_node, $debug );
+		my $cat_node = $routine_pp_node->get_primary_parent_attribute();
 		my $cat_name = $engine->build_perl_identifier_element( $cat_node, $debug );
 		return( 'cat_'.$cat_name.'_'.$schema_name.'_'.$routine_name )
 	}
-	if( my $app_node = $routine_node->get_node_ref_attribute( 'pp_application' ) ) {
-		my $app_name = $engine->build_perl_identifier_element( $app_node, $debug );
+	if( $routine_pp_node_type eq 'application' ) {
+		my $app_name = $engine->build_perl_identifier_element( $routine_pp_node, $debug );
 		return( 'app_'.$app_name.'_'.$routine_name )
 	}
-	if( my $p_routine_node = $routine_node->get_node_ref_attribute( 'pp_routine' ) ) {
-		return( $engine->build_perl_identifier_rtn( $p_routine_node, $debug ).'_'.$routine_name )
-	}
-	# We should never get here.
+	# $routine_pp_node_type eq 'routine'
+	return( $engine->build_perl_identifier_rtn( $routine_pp_node, $debug ).'_'.$routine_name )
 }
 
 sub build_perl_identifier_rtn_var {
@@ -789,7 +784,7 @@ sub install_dbi_driver {
 sub make_srt_node {
 	my ($engine, $node_type, $container) = @_;
 	my $node = $container->new_node( $node_type );
-	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
+	$node->set_node_id( $container->get_next_free_node_id() );
 	$node->put_in_container( $container );
 	return( $node );
 }
@@ -798,10 +793,9 @@ sub make_child_srt_node {
 	my ($engine, $node_type, $pp_node, $pp_attr) = @_;
 	my $container = $pp_node->get_container();
 	my $node = $pp_node->new_node( $node_type );
-	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
+	$node->set_node_id( $container->get_next_free_node_id() );
 	$node->put_in_container( $container );
-	$node->set_node_ref_attribute( $pp_attr, $pp_node );
-	$node->set_pp_node_attribute_name( $pp_attr );
+	$node->set_primary_parent_attribute( $pp_node );
 	return( $node );
 }
 
@@ -917,7 +911,7 @@ sub srtn_catalog_list {
 			my $cat_bp_node = $env_eng->make_srt_node( 'catalog', $container );
 			$cat_bp_node->set_literal_attribute( 'si_name', $dbi_data_source );
 			my $cat_link_bp_node = $env_eng->make_child_srt_node( 
-				'catalog_link', $app_bp_node, 'pp_application' );
+				'catalog_link', $app_bp_node );
 			$cat_link_bp_node->set_literal_attribute( 'si_name', $dbi_data_source );
 			$cat_link_bp_node->set_node_ref_attribute( 'target', $cat_bp_node );
 			my $cat_inst_node = $env_eng->make_srt_node( 'catalog_instance', $container );
@@ -933,7 +927,7 @@ sub srtn_catalog_list {
 				$cat_inst_node->set_literal_attribute( 'file_path', $file_path );
 			}
 			my $cat_link_inst_node = $env_eng->make_child_srt_node( 
-				'catalog_link_instance', $app_inst_node, 'pp_application' );
+				'catalog_link_instance', $app_inst_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'product', $dlp_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'blueprint', $cat_link_bp_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'target', $cat_inst_node );
@@ -1323,7 +1317,7 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::Routine, Locale::KeyedText,
-Rosetta::Utility::SQLBuilder, Rosetta::Utility::SQLParser, DBI.
+L<perl(1)>, L<Rosetta>, L<SQL::Routine>, L<Locale::KeyedText>,
+L<Rosetta::Utility::SQLBuilder>, L<Rosetta::Utility::SQLParser>, L<DBI>.
 
 =cut

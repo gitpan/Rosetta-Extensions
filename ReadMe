@@ -39,14 +39,14 @@ changed.
 
 DEPENDENCIES
 
-Perl Version: 5.006
+Perl Version: 5.008001
 
 Standard Modules: none
 
 Nonstandard Modules: 
 
-	Rosetta 0.39
-	DBI 1.45
+	Rosetta 0.40
+	DBI 1.46
 	various DBI Driver (DBD) modules
 
 SUPPORT

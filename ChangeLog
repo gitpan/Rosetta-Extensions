@@ -1,3 +1,47 @@
+2004-12-18   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.14.
+
+	* This distribution now requires Perl 5.008001 or higher; it was 5.006.
+
+	* All files in this distribution are now officially UTF-8 encoded, though
+	they continue to have no BOM, and they still have Unix line-breaks.  Any
+	files that contain code now have the "use utf8" pragma.  Any files that
+	contain POD now have "=encoding utf8" as the first POD command paragraph.
+
+	* All distro files that contain code, whether *.[pm|pl|PL|t], now begin with
+	"#!perl" on their first line, and the second line contains "use 5.008001;
+	use utf8; use strict; use warnings;"; all other code and POD is below those.
+	Within the *.pm files, the "package ... $VERSION ..." now appears above all
+	of the POD; also, the NAME and DEPENDENCIES POD now have nothing between
+	them.
+
+	* Updated any SEE ALSO module references to be L<>.
+
+	* New code file versions are: Generic.pm v0.11, SQLBuilder.pm v0.14, en.pm
+	v0.07.
+
+	* Updated external dependencies on Rosetta to v0.40 and on DBI to v1.46.
+
+	* This is primarily a maintenance release whose purpose is to maintain 
+	compatability with recent SQL::Routine changes.  There are no significant 
+	Rosetta-Extensions feature changes.
+
+	* Updated these Generic.pm methods: prepare(), build_perl_routine(),
+	build_perl_stmt(), build_perl_expr(), build_perl_identifier_rtn(),
+	make_srt_node(), srtn_catalog_list().
+
+	* Updated these SQLBuilder.pm methods: build_identifier_schema_obj(),
+	build_identifier_view_src_field(), build_identifier_temp_table_for_emul(),
+	build_query_table_factor(), build_schema_table_create(),
+	build_dmanip_routine_stmt(), build_dmanip_src_schema_object_name(),
+	find_scalar_domain_for_row_domain_field().  Note that SQLBuilder.pm is known
+	to have unfinished changes, but it is being let through for now since the
+	code in question isn't being invoked yet.  Also a minor SYNOPSIS update.
+
+	* Updated Rosetta_Extensions.t to print out the same warning when starting 
+	up that the Makefile.PL does, about the necessity to edit the config file.
+
 2004-11-23   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.13.

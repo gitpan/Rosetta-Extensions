@@ -1,30 +1,29 @@
+#!perl
+
+use 5.008001; use utf8; use strict; use warnings;
+
+package Rosetta::Utility::SQLBuilder;
+our $VERSION = '0.14';
+
+use Rosetta '0.40';
+
+######################################################################
+
+=encoding utf8
+
 =head1 NAME
 
 Rosetta::Utility::SQLBuilder - Generate ANSI/ISO SQL:2003 and other SQL variants
 
-=cut
-
-######################################################################
-
-package Rosetta::Utility::SQLBuilder;
-use 5.006;
-use strict;
-use warnings;
-our $VERSION = '0.13';
-
-use Rosetta '0.39';
-
-######################################################################
-
 =head1 DEPENDENCIES
 
-Perl Version: 5.006
+Perl Version: 5.008001
 
 Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.39
+	Rosetta 0.40
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -509,7 +508,7 @@ sub build_identifier_schema_obj { # SQL:2003, 6.6 "<identifier chain>" (p183)
 	# schema being created in, and schema object names may have to be unqualified.
 	my ($builder, $object_node, $for_defn) = @_;
 	my $object_name = $object_node->get_literal_attribute( 'si_name' );
-	my $schema_node = $object_node->get_node_ref_attribute( 'pp_schema' );
+	my $schema_node = $object_node->get_primary_parent_attribute();
 	my $schema_name = $schema_node->get_literal_attribute( 'si_name' );
 	# TODO: support for referencing into other catalogs
 	if( $builder->{$PROP_SINGLE_SCHEMA} ) {
@@ -528,7 +527,7 @@ sub build_identifier_schema_obj { # SQL:2003, 6.6 "<identifier chain>" (p183)
 
 sub build_identifier_view_src_field {
 	my ($builder, $view_src_field) = @_;
-	my $view_src_node = $view_src_field->get_node_ref_attribute( 'pp_src' );
+	my $view_src_node = $view_src_field->get_primary_parent_attribute();
 	my $match_field_node = ($view_src_field->get_node_ref_attribute( 'row_data_type' ) || 
 		$view_src_field->get_node_ref_attribute( 'row_domain' )->get_node_ref_attribute( 'data_type' ));
 	if( $builder->{$PROP_UNWRAP_VIEWS} ) {
@@ -551,16 +550,15 @@ sub build_identifier_temp_table_for_emul {
 	my @tt_name_parts = ();
 	my $curr_node = $inner_view_node;
 	push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
-	while( $curr_node->get_node_ref_attribute( 'pp_view' ) ) {
-		$curr_node = $curr_node->get_node_ref_attribute( 'pp_view' );
+	while( $curr_node->get_primary_parent_attribute()->get_node_type() eq 'view' ) {
+		$curr_node = $curr_node->get_primary_parent_attribute();
 		push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	}
-	while( $curr_node->get_node_ref_attribute( 'pp_routine' ) ) {
-		$curr_node = $curr_node->get_node_ref_attribute( 'pp_routine' );
+	while( $curr_node->get_primary_parent_attribute()->get_node_type() eq 'routine' ) {
+		$curr_node = $curr_node->get_primary_parent_attribute();
 		push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	}
-	$curr_node = $curr_node->get_node_ref_attribute( 'pp_schema' ) || 
-		$curr_node->get_node_ref_attribute( 'pp_application' );
+	$curr_node = $curr_node->get_primary_parent_attribute();
 	push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	return( $builder->quote_identifier( 
 		join( $builder->{$PROP_ET_JOIN_CHARS}, @tt_name_parts ) ) );
@@ -1152,7 +1150,7 @@ sub build_query_table_factor { # SQL:2003, 7.6 "<table reference>" (p303)
 		my $table_name = $builder->build_identifier_schema_obj( $table_node );
 		return( $table_name.' AS '.$correlation_name );
 	} elsif( my $view_node = $view_src_node->get_node_ref_attribute( 'match_view' ) ) {
-		if( $view_node->get_node_ref_attribute( 'pp_view' ) ) {
+		if( $view_node->get_primary_parent_attribute()->get_node_type() eq 'view' ) {
 			# The view we are matching is a subquery.
 			if( $builder->{$PROP_INLINE_SUBQ} ) {
 				# Embed an anonymous subquery; argument passing is not yet supported.
@@ -1163,7 +1161,7 @@ sub build_query_table_factor { # SQL:2003, 7.6 "<table reference>" (p303)
 				my %src_args_to_view_exprs = 
 					map { ($_->get_node_ref_attribute( 'call_src_arg' ) => $_) } 
 					grep { $_->get_enumerated_attribute( 'view_part' ) eq 'FROM' } 
-					@{$view_src_node->get_node_ref_attribute( 'pp_view' )->get_child_nodes( 'view_expr' )};
+					@{$view_src_node->get_primary_parent_attribute()->get_child_nodes( 'view_expr' )};
 				my %view_args_to_src_args = 
 					map { ($_->get_node_ref_attribute( 'match_view_arg' ) => $_) } 
 					@{$view_src_node->get_child_nodes( 'view_src_arg' )};
@@ -1570,7 +1568,7 @@ sub build_schema_table_create {
 				' ('.$foreign_field_names_sql.')' );
 		}
 	}
-	my $is_temp = $table_node->get_node_ref_attribute( 'pp_application' );
+	my $is_temp = ($table_node->get_primary_parent_attribute()->get_node_type() eq 'application');
 	return( 'CREATE'.($is_temp ? ' TEMPORARY' : '').' TABLE '.$table_name.
 		' ('.join(', ', @table_field_sql, @table_index_sql).');' );
 }
@@ -1837,8 +1835,8 @@ sub build_dmanip_routine_stmt {
 	my ($builder, $rtn_stmt_node) = @_;
 	if( my $compound_stmt_routine = $rtn_stmt_node->get_node_ref_attribute( 'block_routine' ) ) {
 		return( $builder->build_dmanip_routine_body( $compound_stmt_routine ) );
-	} elsif( my $assign_dest_node = $rtn_stmt_node->get_node_ref_attribute( 'assign_dest_arg' ) || 
-			$rtn_stmt_node->get_node_ref_attribute( 'assign_dest_var' ) ) {
+	} elsif( my $assign_dest_node = $rtn_stmt_node->get_node_ref_attribute( 'assign_dest' ) || 
+			$rtn_stmt_node->get_node_ref_attribute( 'assign_dest' ) ) {
 		my $dest = $builder->build_identifier_element( $assign_dest_node );
 		my $src = $builder->build_expr( 
 			$rtn_stmt_node->get_child_nodes( 'routine_expr' )->[0] );
@@ -1927,7 +1925,7 @@ sub build_dmanip_src_schema_object_name {
 	} elsif( $view_type eq 'ALIAS' or @view_src_nodes == 1 ) {
 		my $object_node = $view_src_nodes[0]->get_node_ref_attribute( 'match_table' ) || 
 			$view_src_nodes[0]->get_node_ref_attribute( 'match_view' );
-		if( $object_node->get_node_ref_attribute( 'pp_schema' ) ) {
+		if( $object_node->get_primary_parent_attribute()->get_node_type() eq 'schema' ) {
 			# The only source is a schema object, table or named view; use it directly.
 			return( $builder->build_identifier_schema_obj( $view_node ) );
 		} else {
@@ -2033,10 +2031,8 @@ sub substitute_macros {
 
 sub find_scalar_domain_for_row_domain_field {
 	my ($builder, $scalar_data_type_node, $row_domain_node) = @_;
-	my $row_domain_parent_node = ($row_domain_node->get_node_ref_attribute( 'pp_schema' ) ||
-		$row_domain_node->get_node_ref_attribute( 'pp_application' ));
 	my @candidates = grep { $_->get_node_ref_attribute( 'data_type' ) eq $scalar_data_type_node } 
-		@{$row_domain_parent_node->get_child_nodes( 'scalar_domain' )};
+		@{$row_domain_node->get_primary_parent_attribute()->get_child_nodes( 'scalar_domain' )};
 	return( $candidates[0] || $scalar_data_type_node );
 }
 
@@ -2062,7 +2058,7 @@ __END__
 
 	my $dbh = DBI->connect( 'driver:db', 'user', 'pass' );
 
-	my $cr_tbl_cmd_node = $model->get_node( 'command', 1 ); # TABLE_CREATE cmd def earlier
+	my $cr_tbl_cmd_node = $model->get_node( 1 ); # TABLE_CREATE cmd def earlier
 	my $create_sql = $builder->build_sql_routine( $cr_tbl_cmd_node ); # OUT OF DATE ?
 
 	my $sth1 = $dbh->prepare( $create_sql );
@@ -2070,7 +2066,7 @@ __END__
 
 	my %named_arg_values = ( 'foo' => 'abc', 'bar' => 7 ); # to use in select where clause
 
-	my $select_from_tbl_rtn_node = $model->get_node( 'routine', 1 );
+	my $select_from_tbl_rtn_node = $model->get_node( 1 );
 	my ($select_sql, $arg_map) = $builder->build_sql_routine( $select_from_tbl_rtn_node );
 	my @ordered_arg_values = map { $named_arg_values{$_} } @{$arg_map};
 
@@ -3048,6 +3044,6 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::Routine, Rosetta::Engine::Generic, Rosetta::Utility::SQLParser.
+L<perl(1)>, L<Rosetta>, L<SQL::Routine>, L<Rosetta::Engine::Generic>, L<Rosetta::Utility::SQLParser>.
 
 =cut

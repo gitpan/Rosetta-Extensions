@@ -1,20 +1,20 @@
 #!perl
 
-use strict; use warnings;
+use 5.008001; use utf8; use strict; use warnings;
+
 BEGIN { $| = 1; }
-use Rosetta::Validator '0.39';
+use Rosetta::Validator '0.40';
 BEGIN {
 	my $total_possible = Rosetta::Validator->total_possible_tests();
-	print "1..$total_possible\n"; # normal output, used by and hidden by 'make test'
-	warn "1..$total_possible\n"; # lets user see details under 'make test'; might be naughty of me
+	print "1..$total_possible\n";
 }
 
 ######################################################################
 # First ensure the modules to test will compile, are correct versions:
 
-use Rosetta::Engine::Generic '0.10';
-use Rosetta::Engine::Generic::L::en '0.06';
-use Rosetta::Utility::SQLBuilder '0.13';
+use Rosetta::Engine::Generic '0.11';
+use Rosetta::Engine::Generic::L::en '0.07';
+use Rosetta::Utility::SQLBuilder '0.14';
 
 ######################################################################
 # Here are some utility methods:
@@ -33,8 +33,7 @@ sub print_result {
 		" - $feature_key - ".object_to_string( $feature_desc_msg ).
 		($val_error_msg ? ' - '.object_to_string( $val_error_msg ) : '').
 		($eng_error_msg ? ' - '.object_to_string( $eng_error_msg ) : '');
-	print "$result_str\n"; # normal output, used by and hidden by 'make test'
-	warn "$result_str\n"; # lets user see details under 'make test'; might be naughty of me
+	print "$result_str\n";
 }
 
 sub object_to_string {
@@ -78,6 +77,17 @@ sub import_setup_options {
 eval {
 	my $setup_filepath = shift( @ARGV ) || 't_setup.pl'; # set from first command line arg; '0' means use default name
 	my $trace_to_stdout = shift( @ARGV ) ? 1 : 0; # set from second command line arg
+
+	warn <<__endquote;
+------------------------------------------------------------
+This distribution requires a live database to be tested against.  Please edit
+the configuration file "t_setup.pl" that comes with this distribution prior to
+running 'make test' (it could also be done prior to running 'perl
+Makefile.PL').  The setup details that you input should match a visible
+database engine that you have full privileges on, including the ability to
+create schema objects, and select or modify data.
+------------------------------------------------------------
+__endquote
 
 	my $setup_options = import_setup_options( $setup_filepath );
 	my $trace_fh = $trace_to_stdout ? \*STDOUT : undef;
