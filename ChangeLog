@@ -1,3 +1,41 @@
+2004-05-01   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.02.
+
+	* This is a "middle of development" release that includes a large number of
+	changes, some of which are only partially implemented.  It exists largely
+	so that I can have a reliable backup for (and historical record of) the
+	last 3 weeks of in-progress work.  It compiles, but there are large gaps.
+
+	* Updated external dependencies on SQL::SyntaxModel to v0.17.
+
+	* Updated all relevant documentation, including the NAME of Extensions.pod,
+	to specify that the modules herein are "reference implementations of
+	fundamental Rosetta features".  That is, they are not meant to be the best
+	or only implementations, but rather just examples of how the deed is done.
+
+	* Updated documentation to say that the SQL-2003 standard is now the focus 
+	of influence rather than SQL-1999 (or SQL-1992).
+
+	* Updated SQLBuilder.pm (now v0.02) extensively such that over 70% of the
+	module was added or rewritten; probably 98%+ of all changes for this
+	distribution release were in this module.  Most existing properties and
+	methods were renamed and/or reordered.  Added 2 base properties and 4 'data
+	types' sub-properties.  The 'data types' sub-property defaults are now more
+	standard-centric rather than MySQL centric; said sub-properties can now
+	contain substitution variables.  Implemented most of the SQL generation
+	code corresponding to these sections of "SQL-2003 Foundation": 5 "Lexical
+	elements", 6 "Scalar expressions", 7 "Query expressions", 8 "Predicates",
+	11 "Schema definition and manipulation".  All of the above concerned code 
+	changes.  For documentation, there were no descriptions for individual 
+	functions/methods in 0.01, but now there are for about a third of them.
+
+	* Updated Generic.pm (now v0.02) so that the "engine configuration option"
+	named "insen_ident" (case-insensitive identifiers) was renamed to
+	"delim_ident" (delimited identifiers); rewrote that option's description.
+
+	* Updated en.pm (now v0.02) to add a "ROS_G_RAW_SQLSTATE" message.
+
 2004-04-10   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.01.
@@ -13,6 +51,6 @@
 	you can connect to or disconnect from databases, as well as create or
 	remove tables and sequences in a database.  None of this functionality was
 	tested, though (except for compiling); that is planned for release 0.03.
-	
+
 	* For more background information, see the "Rosetta" distribution and 
 	everything of mine that it references.

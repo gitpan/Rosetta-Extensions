@@ -1,6 +1,6 @@
 =head1 NAME
 
-Rosetta::Extensions - Default implementations of fundamental Rosetta features
+Rosetta::Extensions - Reference implementations of fundamental Rosetta features
 
 =head1 DESCRIPTION
 

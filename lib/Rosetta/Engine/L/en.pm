@@ -11,7 +11,7 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 ######################################################################
 
@@ -82,6 +82,10 @@ my %text_strings = (
 	'ROS_G_CMD_DB_CLOSE_CONN_IN_USE' =>
 		"can't close database connection since it has active transaction ".
 		"contexts or prepared ones",
+
+	'ROS_G_RAW_SQLSTATE' => 
+		"following the most recent externally invocated procedure, the returned ".
+		"'SQLSTATE' 5-character-string value was '{SQLSTATE_NUM}' (zero is success)",
 );
 
 ######################################################################

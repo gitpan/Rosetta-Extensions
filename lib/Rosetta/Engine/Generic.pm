@@ -11,13 +11,13 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 use Locale::KeyedText 0.03;
-use SQL::SyntaxModel 0.16;
+use SQL::SyntaxModel 0.17;
 use Rosetta 0.14;
 use DBI;
-use Rosetta::Utility::SQLBuilder 0.01;
+use Rosetta::Utility::SQLBuilder 0.02;
 
 use base qw( Rosetta::Engine );
 
@@ -32,10 +32,10 @@ Standard Modules: I<none>
 Nonstandard Modules: 
 
 	Locale::KeyedText 0.03 (for error messages)
-	SQL::SyntaxModel 0.16
+	SQL::SyntaxModel 0.17
 	Rosetta 0.14
 	DBI (v1.42 or higher recommended)
-	Rosetta::Utility::SQLBuilder 0.01
+	Rosetta::Utility::SQLBuilder 0.02
 
 I<I prefer to simply require that people have DBI v1.42 or later (newest
 version at this writing) but I am not requiring a version yet since it may not
@@ -317,8 +317,8 @@ sub prepare_cmd_db_open {
 	my $auto_commit = $env_eng->dbi_driver_req_autocommit( $dbi_driver, $cat_inst_node ); # usually 0
 
 	my $builder = $env_eng->{$PROP_SQL_BUILDER} = Rosetta::Utility::SQLBuilder->new();
-	$cat_link_inst_opts{'insen_ident'} and 
-		$builder->insensitive_identifiers( $cat_link_inst_opts{'insen_ident'} );
+	$cat_link_inst_opts{'delim_ident'} and 
+		$builder->delimited_identifiers( $cat_link_inst_opts{'delim_ident'} );
 
 	my $conn_prep_eng = $env_eng->new();
 
@@ -540,6 +540,8 @@ above, it would look like this:
 
 =head1 DESCRIPTION
 
+This module is a reference implementation of fundamental Rosetta features.
+
 The Rosetta::Engine::Generic Perl 5 module is a functional but quickly built
 Rosetta Engine that interfaces with a wide variety of SQL databases.  Mainly
 this is all databases that have a DBI driver module for them and that support
@@ -618,19 +620,27 @@ database catalog you are connecting to, or it will fall back to DBD::ODBC.
 
 =item
 
-B<insen_ident> - bool - The SQL standard says that the language keywords and
-identifiers (eg table, column names) are case-insensitive, the latter also
-containing only letters, underscores, and partly numbers; such identifiers
-usually appear in SQL as bare-words.  Whether standard or not, some databases
-do allow you to have case-sensitive identifiers and/or identifiers with unusual
-characters, if all SQL references to them are quoted in SQL such as with
-double-quotes ('"', as distinct from string delimiting single-quotes), or
-back-ticks ('`').  As the latter carries more information, that is what Rosetta
-and SQL::SyntaxModel support by default; however, if this flag is set to true,
-then all identifiers will be coerced to uppercase and get used as bare-words,
-which discards information.  Movement from a case-insensitive environment to a
-sensitive one will render bareword identifiers fully uppercased, as seems the
-standard.  I<The details and name of this feature still need to be worked out.>
+B<delim_ident> - bool - The SQL standard defines 2 main formats for naming
+identifiers (eg table, column names) which we will call "delimited identifiers"
+and "bareword identifiers".  Delimited identifiers are case-sensitive and can
+contain any character (probably) like a literal string; however, all references
+to them must be quoted/delimited, which looks unusual considering their
+conceptual equivalence to variable or function or class names in programming
+languages.  Bareword identifiers are case-insensitive (and practically fully
+uppercase) and can contain only letters, underscores, and partly numbers; SQL
+using this format tends to look much cleaner, and this format is also
+considered the "normal" way of doing things in SQL, with most databases
+supporting it only, if not both.  As delimited identifiers carry more
+information (a full superset), that is what Rosetta and SQL::SyntaxModel
+support internally.  Movement from a delimited format to a bareword one will
+render all alpha characters uppercase and strip the non-allowed characters, and
+both steps discard information; movement the other way will keep all
+information and match as uppercase.  Rosetta::Engine::Generic will generate SQL
+in either format, as determined either by a database product's abilities, or
+according to this Engine configuration option.  True (the default) says to use
+delimited identifiers, where false says to use bareword ones.  Identifiers are
+usually delimited by double-quotes ('"', as distinct from string delimiting
+single-quotes), or back-ticks ('`').  I<Feature details subject to change.>
 
 =back
 

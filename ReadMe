@@ -13,7 +13,9 @@ CONTENTS
 * Copyright And License
 
 PREFACE
-	
+
+This distribution has reference implementations of fundamental Rosetta features.
+
 See the various POD and PM files in this distribution, and their references,
 starting with Rosetta::Extensions, for all your documentation needs.  The
 distribution also includes a ChangeLog file to say what changes already
@@ -44,7 +46,7 @@ Standard Modules: none
 Nonstandard Modules: 
 
 	Locale::KeyedText 0.03 (for error messages)
-	SQL::SyntaxModel 0.16
+	SQL::SyntaxModel 0.17
 	Rosetta 0.14
 	DBI (don't know minimum version yet)
 	various DBI Driver (DBD) modules
