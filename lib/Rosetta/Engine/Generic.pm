@@ -11,13 +11,13 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use Locale::KeyedText 0.06;
-use SQL::SyntaxModel 0.24;
-use Rosetta 0.16;
-use DBI;
-use Rosetta::Utility::SQLBuilder 0.06;
+use SQL::SyntaxModel 0.38;
+use Rosetta 0.33;
+use DBI 1.42;
+use Rosetta::Utility::SQLBuilder 0.07;
 
 use base qw( Rosetta::Engine );
 
@@ -32,53 +32,52 @@ Standard Modules: I<none>
 Nonstandard Modules: 
 
 	Locale::KeyedText 0.06 (for error messages)
-	SQL::SyntaxModel 0.24
-	Rosetta 0.16
-	DBI (v1.43 or higher recommended)
-	Rosetta::Utility::SQLBuilder 0.06
-
-I<I prefer to simply require that people have DBI v1.43 or later (newest
-version at this writing) but I am not requiring a version yet since it may not
-be easy for many people, such as ISP customers, to upgrade right now.>
+	SQL::SyntaxModel 0.38
+	Rosetta 0.33
+	DBI 1.42 (highest version recommended)
+	Rosetta::Utility::SQLBuilder 0.07
 
 =head1 COPYRIGHT AND LICENSE
 
-This file is part of the Rosetta database abstraction framework.
+This file is part of the Rosetta::Extensions collection of Rosetta feature
+reference implementations.
 
-Rosetta is Copyright (c) 1999-2004, Darren R. Duncan.  All rights reserved.
-Address comments, suggestions, and bug reports to B<perl@DarrenDuncan.net>, or
-visit "http://www.DarrenDuncan.net" for more information.
+Rosetta::Extensions is Copyright (c) 1999-2004, Darren R. Duncan.  All rights
+reserved.  Address comments, suggestions, and bug reports to
+B<perl@DarrenDuncan.net>, or visit "http://www.DarrenDuncan.net" for more
+information.
 
-Rosetta is free software; you can redistribute it and/or modify it under the
-terms of the GNU General Public License (GPL) version 2 as published by the
-Free Software Foundation (http://www.fsf.org/).  You should have received a
-copy of the GPL as part of the Rosetta distribution, in the file named
-"LICENSE"; if not, write to the Free Software Foundation, Inc., 59 Temple
-Place, Suite 330, Boston, MA 02111-1307 USA.
+Rosetta::Extensions is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License (GPL) version 2 as published
+by the Free Software Foundation (http://www.fsf.org/).  You should have
+received a copy of the GPL as part of the Rosetta::Extensions distribution, in
+the file named "LICENSE"; if not, write to the Free Software Foundation, Inc.,
+59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 
-Linking Rosetta statically or dynamically with other modules is making a
-combined work based on Rosetta.  Thus, the terms and conditions of the GPL
-cover the whole combination.  As a special exception, the copyright holders of
-Rosetta give you permission to link Rosetta with independent modules,
-regardless of the license terms of these independent modules, and to copy and
-distribute the resulting combined work under terms of your choice, provided
-that every copy of the combined work is accompanied by a complete copy of the
-source code of Rosetta (the version of Rosetta used to produce the combined
-work), being distributed under the terms of the GPL plus this exception.  An
-independent module is a module which is not derived from or based on Rosetta,
-and which is fully useable when not linked to Rosetta in any form.
+Linking Rosetta::Extensions statically or dynamically with other modules is
+making a combined work based on Rosetta::Extensions.  Thus, the terms and
+conditions of the GPL cover the whole combination.  As a special exception, the
+copyright holders of Rosetta::Extensions give you permission to link
+Rosetta::Extensions with independent modules, regardless of the license terms
+of these independent modules, and to copy and distribute the resulting combined
+work under terms of your choice, provided that every copy of the combined work
+is accompanied by a complete copy of the source code of Rosetta::Extensions
+(the version of Rosetta::Extensions used to produce the combined work), being
+distributed under the terms of the GPL plus this exception.  An independent
+module is a module which is not derived from or based on Rosetta::Extensions,
+and which is fully useable when not linked to Rosetta::Extensions in any form.
 
-Any versions of Rosetta that you modify and distribute must carry prominent
-notices stating that you changed the files and the date of any changes, in
-addition to preserving this original copyright notice and other credits.
-Rosetta is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.
+Any versions of Rosetta::Extensions that you modify and distribute must carry
+prominent notices stating that you changed the files and the date of any
+changes, in addition to preserving this original copyright notice and other
+credits.  Rosetta::Extensions is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-While it is by no means required, the copyright holders of Rosetta would
-appreciate being informed any time you create a modified version of Rosetta
-that you are willing to distribute, because that is a practical way of
-suggesting improvements to the standard version.
+While it is by no means required, the copyright holders of Rosetta::Extensions
+would appreciate being informed any time you create a modified version of
+Rosetta::Extensions that you are willing to distribute, because that is a
+practical way of suggesting improvements to the standard version.
 
 =cut
 
@@ -86,9 +85,30 @@ suggesting improvements to the standard version.
 ######################################################################
 
 # Names of properties for objects of the Rosetta::Engine::Generic class are declared here:
-my $PROP_PAYLOAD = 'payload'; # If Eng fronts a LITERAL Intf, put payload it represents here.
-my $PROP_DBI_OBJ = 'dbi_obj'; # Typically either undefined or a 'dbh' or a 'sth' we are wrapping.
-my $PROP_SQL_BUILDER = 'sql_builder'; # Assoc with a connection; the SQLBuilder object we use.
+my $PROP_CONN_PREP_ECO = 'conn_prep_eco'; # hash (str,lit) - For Connection Prep Intfs - 
+	# These are the Engine Config Opts that apply to all Connection Intfs made from this 
+	# Conn Prep; they will override any Conn's execute(ROUTINE_ARGS) values.
+	# They are copied here from the SSM Nodes partly for speed and partly to 
+	# prevent tampering during an open Connection due to modifying the original SSM.
+	# Note: At this moment there is no $PROP_ENV*ECO, as that would seem to be 
+	# counter-productive; eg, conflicting Env|Conn.features() values.
+my $PROP_CONN_ECO = 'conn_eco'; # hash (str,lit) - For Connection Intfs - 
+	# This is like the previous property, but it incorporates any given ROUTINE_ARGS 
+	# when making this specific Connection.
+	# Note: One of these opts says whether this Connection will auto-commit or not; 
+	# it is the definitive source for whether Connection.features() will 
+	# declare support for the TRAN_BASIC feature or not (decl only at conn resolution, not env).
+my $PROP_CONN_DBH_OBJ = 'conn_dbh_obj'; # DBI $dbh object - For Connection Intfs - 
+	# This is the DBI-implemented "database handle" that we are using behind the scenes.
+	# It is setup using up to 5 of the conn_eco values (dsn, user, pass, driver, auto).
+my $PROP_CONN_SQL_BUILDER = 'conn_sql_builder'; # SQLBuilder object - For Connection Intfs - 
+	# This is used to generate all the SQL that will be sent through the Connection.
+my $PROP_LIT_PREP_STH_OBJ = 'lit_prep_sth_obj'; # DBI $sth object - For Literal Prep Intfs - 
+	# This is the DBI-implemented "prepared statement handle" that we are using behind the scenes.
+my $PROP_LIT_PAYLOAD = 'lit_payload'; # lit|ref|obj - For Literal Intfs - 
+	# This is the payload that the Literal Intf represents.
+my $PROP_CURS_PREP_STH_OBJ = 'curs_prep_sth_obj'; # DBI $sth object - For Cursor Prep Intfs - 
+	# This is the DBI-implemented "prepared statement handle" that we are using behind the scenes.
 
 # Names of the allowed Interface types go here:
 my $INTFTP_ERROR       = 'Error'; # What is returned if an error happens, in place of another Intf type
@@ -98,48 +118,95 @@ my $INTFTP_APPLICATION = 'Application'; # What you get when you create an Interf
 	# "application_instance" SQL::SyntaxModel Node; that provides the necessary context for 
 	# subsequent "command" or "routine" Nodes you pass to any child Intf's "prepare" method.
 my $INTFTP_PREPARATION = 'Preparation'; # That which is returned by the 'prepare()' method
-my $INTFTP_ENVIRONMENT = 'Environment'; # Parent to all CONNECTION INTFs impl by same Engine
-my $INTFTP_CONNECTION  = 'Connection'; # Result of executing a 'connect' command
-my $INTFTP_TRANSACTION = 'Transaction'; # Result of asking to start a new transaction
-my $INTFTP_LITERAL     = 'Literal'; # Result of execution that isn't one of the above, like an IUD
+my $INTFTP_LITERAL     = 'Literal'; # Result of execution that isn't one of the following, like an IUD
 	# This type can be returned as the grand-child for any of [APPL, ENVI, CONN, TRAN].
 	# This type is returned by the execute() of any Command that doesn't return one of 
-	# the above 4 context INTFs, except for those that return CURSOR|ROW.
+	# the above 4 context INTFs, except for those that return CURSOR.
 	# Any commands that stuff new Nodes in the current SSM Container, such as the 
-	# *_LIST or *_INFO or *_CLONE Commands, will return a new Node ref as the payload.
+	# *_LIST or *_INFO or *_CLONE Commands, will return a new Node ref or list as the payload.
 	# Any commands that simply do a yes/no test, such as *_VERIFY, or DB_PING, 
 	# simply have a boolean payload.
 	# IUD commands usually return this, plus method calls; payload may be a hash ref of results.
-my $INTFTP_ROW         = 'Row'; # Result of executing a query that returns one row
+my $INTFTP_ENVIRONMENT = 'Environment'; # Parent to all CONNECTION INTFs impl by same Engine
+my $INTFTP_CONNECTION  = 'Connection'; # Result of executing a 'DB_OPEN' command
+my $INTFTP_TRANSACTION = 'Transaction'; # Result of asking to start a new Transaction
 my $INTFTP_CURSOR      = 'Cursor'; # Result of executing a query that would return rows to the caller
 
-# Names of features that Rosetta::Engine::Generic claims to support:
-my %SUPPORTED_FEATURES = map { ($_ => 1) } qw(
-	CONN_BASIC 
-	TRAN_BASIC 
+# Names of Rosetta::Engine::Generic Engine Configuration Options go here:
+my $ECO_LOCAL_DSN   = 'local_dsn';
+my $ECO_LOGIN_USER  = 'login_user';
+my $ECO_LOGIN_PASS  = 'login_pass';
+my $ECO_DBI_DRIVER  = 'dbi_driver';
+my $ECO_AUTO_COMMIT = 'auto_commit';
+my $ECO_DELIM_IDENT = 'delim_ident';
 
-	DOMAIN_LIST 
-	DOMAIN_DEFN_BASIC
-
-	TABLE_LIST
-	TABLE_DEFN_BASIC
-	TABLE_UKEY_BASIC TABLE_UKEY_MULTI
-
-	QUERY_BASIC
-	QUERY_RETURN_SPEC_COLS QUERY_RETURN_COL_EXPRS
-	QUERY_WHERE
-	QUERY_JOIN_BASIC QUERY_JOIN_OUTER_LEFT
-	QUERY_WINDOW_ORDER
+# Declarations of feature support at Rosetta::Engine::Generic Environment level:
+my %FEATURES_SUPP_BY_ENV = (
+	'DB_LIST' => 1,
+	'DB_INFO' => 0,
+	'CONN_BASIC' => 1,
+	'CONN_MULTI_SAME' => 1,
+	'CONN_MULTI_DIFF' => 1,
+	'CONN_PING' => 0,
+	'USER_LIST' => 0,
+	'USER_INFO' => 0,
+	'SCHEMA_LIST' => 0,
+	'SCHEMA_INFO' => 0,
+	'DOMAIN_LIST' => 0,
+	'DOMAIN_INFO' => 0,
+	'DOMAIN_DEFN_VERIFY' => 0,
+	'DOMAIN_DEFN_BASIC' => 0,
+	'TABLE_LIST' => 0,
+	'TABLE_INFO' => 0,
+	'TABLE_DEFN_VERIFY' => 0,
+	'TABLE_DEFN_BASIC' => 0,
+	'TABLE_UKEY_BASIC' => 0,
+	'TABLE_UKEY_MULTI' => 0,
+	'TABLE_FKEY_BASIC' => 0,
+	'TABLE_FKEY_MULTI' => 0,
+	'QUERY_BASIC' => 0,
+	'QUERY_SCHEMA_VIEW' => 0,
+	'QUERY_RETURN_SPEC_COLS' => 0,
+	'QUERY_RETURN_COL_EXPRS' => 0,
+	'QUERY_WHERE' => 0,
+	'QUERY_COMPARE_PRED' => 0,
+	'QUERY_BOOLEAN_EXPR' => 0,
+	'QUERY_NUMERIC_EXPR' => 0,
+	'QUERY_STRING_EXPR' => 0,
+	'QUERY_LIKE_PRED' => 0,
+	'QUERY_JOIN_BASIC' => 0,
+	'QUERY_JOIN_OUTER_LEFT' => 0,
+	'QUERY_JOIN_ALL' => 0,
+	'QUERY_GROUP_BY_NONE' => 0,
+	'QUERY_GROUP_BY_SOME' => 0,
+	'QUERY_AGG_CONCAT' => 0,
+	'QUERY_AGG_EXIST' => 0,
+	'QUERY_OLAP' => 0,
+	'QUERY_HAVING' => 0,
+	'QUERY_WINDOW_ORDER' => 0,
+	'QUERY_WINDOW_LIMIT' => 0,
+	'QUERY_COMPOUND' => 0,
+	'QUERY_SUBQUERY' => 0,
 );
+# These features are conditionally supported at the Connection level:
+	# TRAN_BASIC
+	# TRAN_ROLLBACK_ON_DEATH
+	# TRAN_MULTI_SIB
+	# TRAN_MULTI_CHILD
+	# See the features() method for the conditions.
 
 ######################################################################
 
 sub new {
 	my ($class) = @_;
 	my $engine = bless( {}, ref($class) || $class );
-	$engine->{$PROP_PAYLOAD} = undef;
-	$engine->{$PROP_DBI_OBJ} = undef;
-	$engine->{$PROP_SQL_BUILDER} = undef;
+	$engine->{$PROP_CONN_PREP_ECO} = undef;
+	$engine->{$PROP_CONN_ECO} = undef;
+	$engine->{$PROP_CONN_DBH_OBJ} = undef;
+	$engine->{$PROP_CONN_SQL_BUILDER} = undef;
+	$engine->{$PROP_LIT_PREP_STH_OBJ} = undef;
+	$engine->{$PROP_LIT_PAYLOAD} = undef;
+	$engine->{$PROP_CURS_PREP_STH_OBJ} = undef;
 	return( $engine );
 }
 
@@ -147,9 +214,9 @@ sub new {
 
 sub destroy {
 	my ($engine, $interface) = @_;
-	my $intf_type = $interface->get_interface_type();
-	if( $intf_type eq $INTFTP_CONNECTION ) {
-		$engine->close_dbi_connection( $engine->{$PROP_DBI_OBJ} );
+	if( $engine->{$PROP_CONN_DBH_OBJ} ) {
+		$engine->close_dbi_connection( $engine->{$PROP_CONN_DBH_OBJ},
+			$engine->{$PROP_CONN_ECO}->{$ECO_AUTO_COMMIT} );
 	}
 	# Assume Interface won't let us be called if child Interfaces (and Engines) exist
 	%{$engine} = ();
@@ -157,17 +224,33 @@ sub destroy {
 
 sub DESTROY {
 	my ($engine) = @_;
-	if( ref($engine->{$PROP_DBI_OBJ}) eq 'DBI::db' ) { # a 'Connection'
-		$engine->close_dbi_connection( $engine->{$PROP_DBI_OBJ} );
+	if( $engine->{$PROP_CONN_DBH_OBJ} ) {
+		$engine->close_dbi_connection( $engine->{$PROP_CONN_DBH_OBJ},
+			$engine->{$PROP_CONN_ECO}->{$ECO_AUTO_COMMIT} );
 	}
 	%{$engine} = ();
 }
 
 ######################################################################
 
+sub features {
+	my ($engine, $interface, $feature_name) = @_;
+	my %feature_list = %FEATURES_SUPP_BY_ENV;
+	if( $interface->get_interface_type() eq $INTFTP_CONNECTION ) {
+		if( $engine->{$PROP_CONN_ECO}->{$ECO_AUTO_COMMIT} ) {
+			$feature_list{'TRAN_BASIC'} = 0;
+		} # else TRAN_BASIC missing since don't know yet.
+		# TRAN_ROLLBACK_ON_DEATH missing since don't know yet.
+		$feature_list{'TRAN_MULTI_SIB'} = 0;
+		$feature_list{'TRAN_MULTI_CHILD'} = 0;
+	} else {} # Intf Type is Environment.
+	return( defined($feature_name) ? $feature_list{$feature_name} : \%feature_list );
+}
+
+######################################################################
+
 sub prepare {
 	my ($engine, $interface, $routine_defn) = @_;
-	my $preparation = undef;
 	my $intf_type = $interface->get_interface_type();
 	my $node_type = $routine_defn->get_node_type();
 	if( $node_type eq 'routine' ) {
@@ -175,38 +258,38 @@ sub prepare {
 			$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_GEN_RTN', 
 				{ 'ITYPE' => $intf_type } );
 		}
-		$preparation = $engine->prepare_routine( $interface, $routine_defn );
+		return( $engine->prepare_routine( $interface, $routine_defn ) );
 	} elsif( $node_type eq 'command' ) {
 		my $cmd_type = $routine_defn->get_enumerated_attribute( 'command_type' );
 		if( $intf_type eq $INTFTP_ENVIRONMENT ) {
 			# Note that 'environment' is synonymous with 'application', 
 			# but an Engine->prepare() should never be called with an 'application' Interface.
 			if( $cmd_type eq 'DB_LIST' ) {
-				$preparation = $engine->prepare_cmd_db_list( $interface, $routine_defn );
+				return( $engine->prepare_cmd_db_list( $interface, $routine_defn ) );
 			} elsif( $cmd_type eq 'DB_INFO' ) {
-				$preparation = $engine->prepare_cmd_db_info( $interface, $routine_defn );
+				return( $engine->prepare_cmd_db_info( $interface, $routine_defn ) );
 			} elsif( $cmd_type eq 'DB_OPEN' ) {
-				$preparation = $engine->prepare_cmd_db_open( $interface, $routine_defn );
+				return( $engine->prepare_cmd_db_open( $interface, $routine_defn ) );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
 					{ 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
 			}
 		} elsif( $intf_type eq $INTFTP_CONNECTION ) {
 			if( $cmd_type eq 'DB_CLOSE' ) {
-				$preparation = $engine->prepare_cmd_db_close( $interface, $routine_defn );
+				return( $engine->prepare_cmd_db_close( $interface, $routine_defn ) );
 			} elsif( $cmd_type eq 'TRA_OPEN' ) {
-				$preparation = $engine->prepare_cmd_tra_open( $interface, $routine_defn );
+				return( $engine->prepare_cmd_tra_open( $interface, $routine_defn ) );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
 					{ 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
 			}
 		} elsif( $intf_type eq $INTFTP_TRANSACTION ) {
 			if( $cmd_type eq 'TRA_CLOSE' ) {
-				$preparation = $engine->prepare_cmd_tra_close( $interface, $routine_defn );
+				return( $engine->prepare_cmd_tra_close( $interface, $routine_defn ) );
 			} elsif( $cmd_type eq 'TABLE_CREATE' ) {
-				$preparation = $engine->prepare_cmd_table_create( $interface, $routine_defn );
+				return( $engine->prepare_cmd_table_create( $interface, $routine_defn ) );
 			} elsif( $cmd_type eq 'TABLE_DELETE' ) {
-				$preparation = $engine->prepare_cmd_table_delete( $interface, $routine_defn );
+				return( $engine->prepare_cmd_table_delete( $interface, $routine_defn ) );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
 					{ 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
@@ -219,27 +302,24 @@ sub prepare {
 		$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_SSM_NODE', 
 			{ 'ITYPE' => $intf_type, 'NTYPE' => $node_type } );
 	}
-	return( $preparation );
 }
 
 ######################################################################
 
 sub open_dbi_connection {
-	my ($engine, $dbi_driver, $local_dsn, $login_user, $login_pass) = @_;
-	my $use_auto_commit = $engine->get_static_const_use_auto_commit(); # usually 0
+	my ($engine, $dbi_driver, $local_dsn, $login_user, $login_pass, $auto_commit) = @_;
 	my $dbi_dbh = DBI->connect( 
 		"DBI:".$dbi_driver.":".$local_dsn,
 		$login_user,
 		$login_pass,
-		{ RaiseError => 1, AutoCommit => $use_auto_commit },
+		{ RaiseError => 1, AutoCommit => $auto_commit },
 	); # throws exception on failure
 	return( $dbi_dbh );
 }
 
 sub close_dbi_connection {
-	my ($engine, $dbi_dbh) = @_;
-	my $use_auto_commit = $engine->get_static_const_use_auto_commit(); # usually 0
-	unless( $use_auto_commit ) {
+	my ($engine, $dbi_dbh, $auto_commit) = @_;
+	unless( $auto_commit ) {
 		$dbi_dbh->rollback(); # explicit call, since behaviour of disconnect undefined
 	}
 	$dbi_dbh->disconnect(); # throws exception on failure
@@ -404,7 +484,7 @@ sub prepare_cmd_db_list {
 		}
 
 		my $rtv_lit_eng = $rtv_lit_prep_eng->new();
-		$rtv_lit_eng->{$PROP_PAYLOAD} = \@cat_link_inst_nodes;
+		$rtv_lit_eng->{$PROP_LIT_PAYLOAD} = \@cat_link_inst_nodes;
 
 		my $rtv_lit_intf = $rtv_lit_prep_intf->new( $INTFTP_LITERAL, undef, 
 			$rtv_lit_prep_intf, $rtv_lit_eng );
@@ -442,33 +522,36 @@ sub prepare_cmd_db_open {
 			last;
 		}
 	}
-	my %cat_link_inst_opts = map { 
+	my $cat_inst_node = $cat_link_inst_node->get_node_ref_attribute( 'target' );
+	my %conn_prep_eco = map { 
 			( $_->get_literal_attribute( 'key' ) => $_->get_literal_attribute( 'value' ) ) 
 		} @{$cat_link_inst_node->get_child_nodes( 'catalog_link_instance_opt' )};
-	my $cat_inst_node = $cat_link_inst_node->get_node_ref_attribute( 'target' );
-	my $local_dsn = $cat_link_inst_opts{'local_dsn'} || 
-		$cat_link_inst_node->get_literal_attribute( 'local_dsn' );
-	my $login_user = $cat_link_inst_opts{'login_user'} || 
-		$cat_link_inst_node->get_literal_attribute( 'login_user' );
-	my $login_pass = $cat_link_inst_opts{'login_pass'} || 
-		$cat_link_inst_node->get_literal_attribute( 'login_pass' );
-	my $dbi_driver = $env_eng->install_dbi_driver( $cat_link_inst_opts{'dbi_driver'}, $cat_inst_node );
+	$conn_prep_eco{'local_dsn'} ||= $cat_link_inst_node->get_literal_attribute( 'local_dsn' );
+	$conn_prep_eco{'login_user'} ||= $cat_link_inst_node->get_literal_attribute( 'login_user' );
+	$conn_prep_eco{'login_pass'} ||= $cat_link_inst_node->get_literal_attribute( 'login_pass' );
+	my $dbi_driver = $env_eng->install_dbi_driver( $conn_prep_eco{'dbi_driver'}, $cat_inst_node );
 
-	my $builder = $env_eng->{$PROP_SQL_BUILDER} = Rosetta::Utility::SQLBuilder->new();
-	$cat_link_inst_opts{'delim_ident'} and 
-		$builder->delimited_identifiers( $cat_link_inst_opts{'delim_ident'} );
+	my $builder = $env_eng->{$PROP_CONN_SQL_BUILDER} = Rosetta::Utility::SQLBuilder->new();
+	$conn_prep_eco{'delim_ident'} and 
+		$builder->delimited_identifiers( $conn_prep_eco{'delim_ident'} );
 
 	my $routine = sub {
 		# This routine is a closure.
 		my ($rtv_conn_prep_eng, $rtv_conn_prep_intf, $rtv_args) = @_;
-		$rtv_args->{'local_user'} and $login_user = $rtv_args->{'local_user'};
-		$rtv_args->{'local_pass'} and $login_pass = $rtv_args->{'local_pass'};
+
+		my %conn_eco = %{$rtv_conn_prep_eng->{$PROP_CONN_PREP_ECO}};
+		my $local_dsn = $conn_eco{'local_dsn'};
+		my $login_user = $conn_eco{'login_user'} ||= $rtv_args->{'login_user'};
+		my $login_pass = $conn_eco{'login_pass'} ||= $rtv_args->{'login_pass'};
+		my $auto_commit = $conn_eco{'auto_commit'};
 
 		my $dbi_dbh = $rtv_conn_prep_eng->open_dbi_connection( 
-			$dbi_driver, $local_dsn, $login_user, $login_pass );
+			$dbi_driver, $local_dsn, $login_user, $login_pass, $auto_commit );
 
 		my $rtv_conn_eng = $rtv_conn_prep_eng->new();
-		$rtv_conn_eng->{$PROP_DBI_OBJ} = $dbi_dbh;
+		$rtv_conn_eng->{$PROP_CONN_ECO} = \%conn_eco;
+		$rtv_conn_eng->{$PROP_CONN_DBH_OBJ} = $dbi_dbh;
+		$rtv_conn_eng->{$PROP_CONN_SQL_BUILDER} = $builder;
 
 		my $rtv_conn_intf = $rtv_conn_prep_intf->new( $INTFTP_CONNECTION, undef, 
 			$rtv_conn_prep_intf, $rtv_conn_eng );
@@ -476,6 +559,7 @@ sub prepare_cmd_db_open {
 	};
 
 	my $conn_prep_eng = $env_eng->new();
+	$conn_prep_eng->{$PROP_CONN_PREP_ECO} = \%conn_prep_eco;
 
 	my $conn_prep_intf = $env_intf->new( $INTFTP_PREPARATION, undef, 
 		$env_intf, $conn_prep_eng, $command_bp_node, $routine );
@@ -495,7 +579,8 @@ sub prepare_cmd_db_close {
 			$rtv_tomb_prep_eng->_throw_error_message( 'ROS_G_CMD_DB_CLOSE_CONN_IN_USE' );
 		}
 
-		$conn_eng->close_dbi_connection( $conn_eng->{$PROP_DBI_OBJ} );
+		$conn_eng->close_dbi_connection( $conn_eng->{$PROP_CONN_DBH_OBJ},
+			$conn_eng->{$PROP_CONN_ECO}->{$ECO_AUTO_COMMIT} );
 
 		my $rtv_tomb_intf = $rtv_tomb_prep_intf->new( $INTFTP_TOMBSTONE );
 		$rtv_tomb_prep_intf->destroy();
@@ -512,21 +597,9 @@ sub prepare_cmd_db_close {
 
 ######################################################################
 
-sub get_supported_features {
-	my ($env_eng, $env_intf, $feature_name) = @_;
-	my $rh_supported_features = $env_eng->get_static_const_supported_features();
-	if( defined( $feature_name ) ) {
-		return( $rh_supported_features->{$feature_name} );
-	} else {
-		return( {%{$rh_supported_features}} );
-	}
-}
-
-######################################################################
-
 sub payload {
 	my ($lit_eng, $lit_intf) = @_;
-	return( $lit_eng->{$PROP_PAYLOAD} );
+	return( $lit_eng->{$PROP_LIT_PAYLOAD} );
 }
 
 ######################################################################
@@ -563,20 +636,6 @@ sub fetch_all_rows {
 	}
 	$curs_eng->finalize();
 	return( \@rows );
-}
-
-######################################################################
-
-sub get_static_const_use_auto_commit {
-	# This function is separated so sub-classes can override it easily.
-	return( 0 );
-}
-
-######################################################################
-
-sub get_static_const_supported_features {
-	# This function is separated so sub-classes can override it easily.
-	return( \%SUPPORTED_FEATURES );
 }
 
 ######################################################################
@@ -739,54 +798,148 @@ objects of Rosetta::Engine::Generic directly; rather, you use this module
 indirectly through the Rosetta::Interface class.  Following this logic, there 
 is no class function or method documentation here.
 
-Note that Rosetta::Engine::Generic will always use transactions and require
-explicit commits for database actions to be saved; it will also declare its
-transaction support in its feature set.  Since transactions are too difficult
-to emulate properly, Generic won't try; it simply won't work as expected with
-databases that lack native support.  A second Engine named ::GenericAC exists
-for non-transactional databases, and declares its lack of support for the
-feature.  This Engine sub-classes Generic and should be identical except for
-the fact that it conceptually auto-commits every database action; if used with
-a transaction-supporting database, it will auto-commit, to emulate the
-non-support behaviour.  See Rosetta::Engine::GenericAC for further details.
-
 I<CAVEAT: THIS ENGINE IS "UNDER CONSTRUCTION" AND MANY FEATURES DESCRIBED BY 
-SQL::SyntaxModel ARE NOT YET IMPLEMENTED.>
+SQL::SyntaxModel::Language AND Rosetta::Features ARE NOT YET IMPLEMENTED.>
 
-=head1 SUPPORTED ROSETTA FEATURES
+=head1 ROSETTA FEATURES SUPPORTED BY ENVIRONMENT
 
-Rosetta::Engine::Generic explicitly declares support for the following Rosetta
-Native Interface features:
+Rosetta::Engine::Generic explicitly declares the support levels for certain
+Rosetta Native Interface features at the Environment level, listed below. 
+Those with 'yes' are always available regardless of any Connection
+circumstances; those with 'no' are never available.
 
-	CONN_BASIC 
-	TRAN_BASIC 
-
+	DB_LIST
+		yes
+	DB_INFO 
+		no
+	CONN_BASIC
+		yes
+	CONN_MULTI_SAME
+		yes
+	CONN_MULTI_DIFF 
+		yes
+	CONN_PING 
+		no
+	USER_LIST 
+		no
+	USER_INFO
+		no
+	SCHEMA_LIST 
+		no
+	SCHEMA_INFO
+		no
 	DOMAIN_LIST 
+		no
+	DOMAIN_INFO
+		no
+	DOMAIN_DEFN_VERIFY 
+		no
 	DOMAIN_DEFN_BASIC
-
-	TABLE_LIST
+		no
+	TABLE_LIST 
+		no
+	TABLE_INFO
+		no
+	TABLE_DEFN_VERIFY
+		no
 	TABLE_DEFN_BASIC
-	TABLE_UKEY_BASIC TABLE_UKEY_MULTI
-
+		no
+	TABLE_UKEY_BASIC
+		no
+	TABLE_UKEY_MULTI
+		no
+	TABLE_FKEY_BASIC
+		no
+	TABLE_FKEY_MULTI
+		no
 	QUERY_BASIC
-	QUERY_RETURN_SPEC_COLS QUERY_RETURN_COL_EXPRS
+		no
+	QUERY_SCHEMA_VIEW
+		no
+	QUERY_RETURN_SPEC_COLS
+		no
+	QUERY_RETURN_COL_EXPRS
+		no
 	QUERY_WHERE
-	QUERY_JOIN_BASIC QUERY_JOIN_OUTER_LEFT
+		no
+	QUERY_COMPARE_PRED
+		no
+	QUERY_BOOLEAN_EXPR
+		no
+	QUERY_NUMERIC_EXPR
+		no
+	QUERY_STRING_EXPR
+		no
+	QUERY_LIKE_PRED
+		no
+	QUERY_JOIN_BASIC
+		no
+	QUERY_JOIN_OUTER_LEFT
+		no
+	QUERY_JOIN_ALL
+		no
+	QUERY_GROUP_BY_NONE
+		no
+	QUERY_GROUP_BY_SOME
+		no
+	QUERY_AGG_CONCAT
+		no
+	QUERY_AGG_EXIST
+		no
+	QUERY_OLAP
+		no
+	QUERY_HAVING
+		no
 	QUERY_WINDOW_ORDER
+		no
+	QUERY_WINDOW_LIMIT
+		no
+	QUERY_COMPOUND
+		no
+	QUERY_SUBQUERY
+		no
 
 This Engine may contain code that supports additional features, but these have
 not been tested at all and so are not yet declared.
+
+=head1 ROSETTA FEATURES SUPPORTED PER CONNECTION
+
+Rosetta::Engine::Generic explicitly declares the support levels for certain
+Rosetta Native Interface features at the Connection level, listed below. 
+Whether or not each is available depends on what Connection you have.  The
+conditions for each feature are listed with them, below and indented.
+
+	TRAN_BASIC
+		- If "auto_commit" ECO is true then:
+			no
+		- Else
+			don't know yet
+	TRAN_ROLLBACK_ON_DEATH 
+		don't know yet
+	TRAN_MULTI_SIB
+		no
+	TRAN_MULTI_CHILD 
+		no
 
 =head1 ENGINE CONFIGURATION OPTIONS
 
 The SQL::SyntaxModel objects that comprise Rosetta's inputs have special
 compartments for passing configuration options that are only recognizable to
-the chosen "data link product", which in Rosetta terms is an Engine.  When you
-have a "catalog_link_instance" Node that associates an Engine with your
-application's prospective data link, these options are in child
-"catalog_link_instance_opt" Nodes of that one.
-
-Rosetta::Engine::Generic recognizes these link instance options:
+the chosen "data link product", which in Rosetta terms is an Engine.  At the
+moment, all Engine Configuration Options are conceptually passed in at "catalog
+link realization time", which is usually when or before a Connection Interface
+is about to be made (by a prepare(DB_OPEN)/execute() combination), or it can be
+when or before an analagous operation (such as a DB_INFO).  When a catalog link
+is realized, a short chain of related SSM Nodes is consulted for their
+attributes or associated child *_opt Nodes, one each of: catalog_link_instance,
+catalog_instance, data_link_product, data_storage_product.  I<The last two may
+be removed from consultation.>  Option values declared later in this list are
+increasingly global, and those declared earlier are increasingly local; any
+time there are name collisions, the most global values have precedence.  The
+SSM Nodes are read at prepare() time.  At execute() time, any ROUTINE_ARGS
+values can fill in blanks, but they can not override any any SSM Node option
+values.  Once a Connection is created, the configuration settings for it can
+not be changed.  Rosetta::Engine::Generic recognizes these options:
 
 =over 4
 
@@ -826,6 +979,22 @@ database catalog you are connecting to, or it will fall back to DBD::ODBC.
 
 =item
 
+B<auto_commit> - bool - If this option is false (the default),
+Rosetta::Engine::Generic will always use transactions and require explicit
+commits for database actions to be saved; if this option is true, then it will
+instead auto-commit every database action, so separate commits are not
+necessary.  When this option is true, then this module should behave as
+expected with every kind of data storage product; automatic explicit commits
+will be issued for transaction supporting databases, and this behaviour will
+just happen anyway on non-supporting ones.  When this option is false, then you
+must make sure to only use database products with it that have native support
+for transactions; Generic won't even try to emulate transactions since that is
+too difficult to do properly; this module simply won't work properly with
+databases that lack native transaction support, even though it will incorrectly
+declare support for said activity.
+
+=item
+
 B<delim_ident> - bool - The SQL standard defines 2 main formats for naming
 identifiers (eg table, column names) which we will call "delimited identifiers"
 and "bareword identifiers".  Delimited identifiers are case-sensitive and can
@@ -856,9 +1025,6 @@ More options will be added, or some will be changed, over time.
 
 This module is currently in pre-alpha development status, meaning that some
 parts of it will be changed in the near future, perhaps in incompatible ways.
-
-I am only testing this module against the newest versions of DBI, so if you are 
-using older versions then there may be un-anticipated problems.
 
 =head1 SEE ALSO
 

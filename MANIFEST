@@ -2,7 +2,6 @@ ChangeLog
 INSTALL
 lib/Rosetta/Engine/Generic.pm
 lib/Rosetta/Engine/Generic/L/en.pm
-lib/Rosetta/Engine/GenericAC.pm
 lib/Rosetta/Extensions.pod
 lib/Rosetta/Utility/SQLBuilder.pm
 LICENSE

@@ -1,3 +1,49 @@
+2004-08-16   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.07.
+
+	* New code file versions are: SQLBuilder.pm v0.07, Generic.pm v0.04, en.pm
+	v0.04.
+
+	* Updated external dependencies on SQL::SyntaxModel to v0.38 and on Rosetta
+	to v0.33 and on DBI to v1.42.  There was previously no minimum version of
+	DBI specified.  I chose v1.42 somewhat arbitrarily, because it is the
+	relatively new (5 months old, 1 release behind) version that I am currently
+	testing with; if you really want to stay with an older version than that,
+	you are welcome to edit my "use" statements to a lower number and test your
+	luck.  From now on, I will not explicitly raise the required version number
+	unless I can see a change that visibly affects this distribution or me.
+
+	* Changed the first line of every file's COPYRIGHT AND LICENSE from "...
+	Rosetta database abstraction framework" to "... Rosetta::Extensions
+	collection of Rosetta feature reference implementations".  Every other
+	occurance of 'Rosetta' in the copyright/license was changed to
+	'Rosetta::Extensions'.  Following this, all files in the Rosetta-Extensions
+	distribution now have a different copyright than the core Rosetta distro.
+
+	* Replaced Generic.pm's 3 object properties with 7 different ones; each new
+	property will only be set for Generic objects behind a specific type of
+	Interface.  Simplified the destructor code as it is now trivial to find out 
+	what kind of Interface an object is behind, in DESTROY().  Rewrote parts of 
+	prepare_cmd_db_open() around the new property list.
+
+	* Renamed the get_supported_features() method of Generic.pm to features()
+	and re-positioned it to be above prepare().  This function can now be
+	called off of both Environments and Connections.  Fleshed out the list of
+	feature declarations, in both code and docs, to include every possible
+	feature, each with a 'yes' or 'no'.  Eliminated the separate
+	get_static_const_supported_features() method.  Split the SUPPORTED ROSETTA
+	FEATURES docs into ROSETTA FEATURES SUPPORTED [BY ENVIRONMENT|PER
+	CONNECTION].  Rewrote first ENGINE CONFIGURATION OPTIONS paragraph.
+
+	* Merged the module GenericAC.pm into Generic.pm as the reasons for it to
+	exist separately no longer exist.  Added new boolean option to Generic.pm's
+	ENGINE CONFIGURATION OPTIONS list named "auto_commit", whose default value
+	is false (matching the old Generic's transactional behaviour); if you set
+	this to true, then this module will behave like the old GenericAC.  The
+	separate get_static_const_use_auto_commit() method is now gone.  Removed
+	last DESCRIPTION paragraph.
+
 2004-08-06   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.06.
