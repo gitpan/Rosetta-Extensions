@@ -1,3 +1,100 @@
+2004-10-26   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.10.
+
+	* New code file versions are: Generic.pm v0.07, SQLBuilder.pm v0.10.
+
+	* This is a major release, with multiple significant design, code, and
+	documentation updates, mostly in Generic.pm, and also in SQLBuilder.pm. 
+	The externally visible end-to-end functionality hasn't changed (you can get
+	a list of databases and open or close connections, and that's it); only the
+	implementations of how to do this has changed.
+
+	* Updated external dependencies on Rosetta to v0.37.
+
+	* Corresponding to changes in SQL::Routine (v0.44, v0.45) and the Rosetta
+	core (v0.37), about 2/3 of the code in Generic.pm was rewritten; the file
+	is also about 1/3 larger.  See the change logs of those dependent releases
+	to explain most of the rewrites. The main relevant changes are:  1.
+	'command' SRT Nodes no longer exist; their functionality is replaced by the
+	built-in standard routines that can be called by user-defined routines;
+	prepare() now only takes a 'routine' SRT Node as its argument.  2. All
+	built-in routines now take named arguments just like user-defined routines.
+	 User-defined 'routine' Nodes now can have child 'routine_context' Nodes
+	that are used like an argument but aren't.  3. 'Connection'/CONN and
+	'Cursor'/CURSOR Interfaces/context-types are now directly referenceable in
+	user-defined routines, and those Interfaces are now created by declaring a
+	routine variable of their type; they also no longer implicitly represent an
+	'open' connection/cursor by their existence; you open/close them explicitly
+	using appropriate open|close() built-in routines, and you can do that more
+	than once; Connection.features() now can return different answers depending
+	on whether the Connection is closed or open.  4. A new public routine
+	routine_source_code() must be implemented. 5. Four existing public
+	routines, specific to working with open cursors, must be removed or
+	privatized as appropriate; users invoke appropriate built-ins from their
+	u-d routines instead.  6. The names of the Interface types are now public
+	'our' declarations in Rosetta.pm, so we can refer to them in our code
+	rather than re-declaring them.  7. Any occurances of "login user" were
+	renamed to "login name".  8. prepare() can be invoked off of 3 Interface
+	types: Environment, Connection, Cursor.  9. Renamed a couple of Rosetta
+	features from DB_* to CATALOG_*.
+
+	* In Generic.pm, the main routine that prepare() builds is now done as a
+	string of Perl code, that is later eval'd to produce a CODE ("sub {}") ref,
+	rather than having bare Perl code that does the same, as old 'command'
+	specific handlers did (for exactly 2 commands).  
+
+	* The newly built Perl routine code generated from SRT routines are output
+	through the Rosetta tracing file-handle, if it is present.
+
+	* In Generic.pm, added 4 new class properties: in_progress_prep_eng,
+	env_perl_rtns, env_perl_rtn_strs, conn_is_open.  Also, the nature of the 3
+	pre-existing 'Connection' properties (conn_eco, conn_dbh_obj,
+	conn_sql_builder) has changed so they are only valued when the Connection
+	is in the 'open' state.
+
+	* In Generic.pm, support for the two TRAN_MULTI_* features are now
+	explicitly declared to be 'no'.
+
+	* For historical posterity, this is the current list of Generic.pm methods:
+	_throw_error_message(), new(), destroy(), DESTROY(), features(), prepare(),
+	payload(), routine_source_code(), build_perl_routine(),
+	build_perl_routine_body(), build_perl_stmt(), build_perl_stmt_srtn(),
+	build_perl_stmt_urtn(), build_perl_expr(), build_perl_expr_srtn(),
+	build_perl_expr_urtn(), get_env_cx_e_and_i(), get_conn_cx_e_and_i(),
+	get_curs_cx_e_and_i(), encode_perl_identifier(),
+	build_perl_identifier_element(), build_perl_identifier_rtn(),
+	build_perl_identifier_rtn_var(), encode_perl_literal_cstr(),
+	build_perl_literal_cstr_from_atvl(), open_dbi_connection(),
+	close_dbi_connection(), clean_up_dbi_driver_string(), install_dbi_driver(),
+	make_srt_node(), make_child_srt_node(), build_perl_declare_cx_conn(),
+	srtn_catalog_list(), srtn_catalog_open(), srtn_catalog_close().
+
+	* Note that the SYNOPSIS in Generic.pm is now out of date, and wrong.  It
+	will be fixed later.
+
+	* Fixed bugs in the quote_[bin|hex]_string_literal() functions of
+	SQLBuilder.pm, so that each one encodes the whole input string and not just
+	the first 4 bytes.
+
+	* Renamed methods in SQLBuilder.pm as follows: build_expr_call_[s|u]func()
+	-> build_expr_call_[s|u]routine(), build_dmanip_call_[s|u]proc() ->
+	build_dmanip_call_[s|u]routine().  Similar variable name changes inside.
+
+	* In accordance with recent SQL::Routine changes, rewrote large parts of
+	the following SQLBuilder methods: build_expr(), build_expr_cast_spec(),
+	build_expr_call_sroutine(), build_dmanip_routine_body(),
+	build_dmanip_routine_stmt(), build_dmanip_call_sroutine().  Also renamed a 
+	number of references to SRT Node attributes in other methods.
+
+	* Replaced all documentation occurances of "SQL-2003" with "SQL:2003".
+
+	* Updated all code that referenced module version numbers so that those
+	numbers are now quoted in strings rather than being bare numbers.  In the
+	*.pm files, this affected only the "use" strings, since each $VERSION was
+	already declared as a string.  In the *.t files, the "use" strings.  In the
+	Makefile.PL, each PREREQ_PM item was updated.
+
 2004-10-04   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.09.
@@ -44,7 +141,7 @@
 	[get|clear]_positional_host_param_map_array().  Also renamed the
 	corresponding 3 class properties.  Also renamed all documentation
 	references of "bind variables" to "host parameters", since that is the
-	official name for them in the SQL-2003 standard.
+	official name for them in the SQL:2003 standard.
 
 	* In SQLBuilder.pm, split off new method from build_expr() named
 	build_identifier_host_parameter_name(), which handles the 'ARG' case.  Also
@@ -208,7 +305,7 @@
 	plus build_dmanip_[insert|update|delete]_stmt(); build_dmanip_set_clause()
 	was merged into the latter, and build_query_table_value_constr() was merged
 	into 'insert'.  A few other small code updates.  All methods now have 
-	SQL-2003 section/page references, where applicable.
+	SQL:2003 section/page references, where applicable.
 
 2004-06-21   Darren Duncan <perl@DarrenDuncan.net>
 
@@ -222,7 +319,7 @@
 	Renamed build_expr_identifier_element() to build_identifier_element() and
 	split build_expr_identifier_chain() into 4 more specialized
 	build_identifier_*() methods.  Further added or updated SQL generation code
-	corresponding to these sections of "SQL-2003 Foundation": 6 "Scalar
+	corresponding to these sections of "SQL:2003 Foundation": 6 "Scalar
 	expressions", 7 "Query expressions", 11 "Schema definition and
 	manipulation", 14 "Data manipulation".  All of the above concerned code
 	changes.  Some documentation changes, mostly in the method list; most
@@ -240,7 +337,7 @@
 	* Updated SQLBuilder.pm (now v0.03) extensively such that about 20% of the
 	module was added or rewritten.  Added a base property and renamed another.
 	Added or updated SQL generation code corresponding to these sections of
-	"SQL-2003 Foundation": 7 "Query expressions", 11 "Schema definition and
+	"SQL:2003 Foundation": 7 "Query expressions", 11 "Schema definition and
 	manipulation", 12 "Access control", 14 "Data manipulation".  All of the
 	above concerned code changes.  Documentation was added/changed for the
 	new/altered property accessors only.
@@ -261,8 +358,8 @@
 	fundamental Rosetta features".  That is, they are not meant to be the best
 	or only implementations, but rather just examples of how the deed is done.
 
-	* Updated documentation to say that the SQL-2003 standard is now the focus 
-	of influence rather than SQL-1999 (or SQL-1992).
+	* Updated documentation to say that the SQL:2003 standard is now the focus 
+	of influence rather than SQL:1999 (or SQL:1992).
 
 	* Updated SQLBuilder.pm (now v0.02) extensively such that over 70% of the
 	module was added or rewritten; probably 98%+ of all changes for this
@@ -271,7 +368,7 @@
 	types' sub-properties.  The 'data types' sub-property defaults are now more
 	standard-centric rather than MySQL centric; said sub-properties can now
 	contain substitution variables.  Implemented most of the SQL generation
-	code corresponding to these sections of "SQL-2003 Foundation": 5 "Lexical
+	code corresponding to these sections of "SQL:2003 Foundation": 5 "Lexical
 	elements", 6 "Scalar expressions", 7 "Query expressions", 8 "Predicates",
 	11 "Schema definition and manipulation".  All of the above concerned code 
 	changes.  For documentation, there were no descriptions for individual 

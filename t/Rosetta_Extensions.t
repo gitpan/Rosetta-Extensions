@@ -5,9 +5,9 @@
 
 BEGIN { $| = 1; print "1..1\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Rosetta::Utility::SQLBuilder 0.09;
-use Rosetta::Engine::Generic 0.06;
-use Rosetta::Engine::Generic::L::en 0.06;
+use Rosetta::Engine::Generic '0.07';
+use Rosetta::Engine::Generic::L::en '0.06';
+use Rosetta::Utility::SQLBuilder '0.10';
 $loaded = 1;
 print "ok 1\n";
 use strict;
