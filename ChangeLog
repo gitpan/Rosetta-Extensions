@@ -1,3 +1,17 @@
+2004-05-12   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.03.
+
+	* Updated external dependencies on SQL::SyntaxModel to v0.18.
+
+	* Updated SQLBuilder.pm (now v0.03) extensively such that about 20% of the
+	module was added or rewritten.  Added a base property and renamed another.
+	Added or updated SQL generation code corresponding to these sections of
+	"SQL-2003 Foundation": 7 "Query expressions", 11 "Schema definition and
+	manipulation", 12 "Access control", 14 "Data manipulation".  All of the
+	above concerned code changes.  Documentation was added/changed for the
+	new/altered property accessors only.
+
 2004-05-01   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.02.

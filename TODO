@@ -1,23 +1,24 @@
 NEWER DEVELOPMENT TRACK
 
-r0.03 - Complete the work I left "in progress" as of r0.02.  Implement routine 
-statements, query from-clauses, insert/update/delete, domains as schema objects.
+r0.04 - Continue to implement queries, data manipulation sql, routine bodies,
+calls to routines and named views, sql bind variables.  Add function
+documentation for most functions.  Continue to implement Generic.pm.
 
-r0.04 - Start the Rosetta::Validator module(s) and actually test that basic
+r0.05 - Start the Rosetta::Validator module(s) and actually test that basic
 stuff like connecting to a database, creating tables, and basic DML functions
 work.  Update the list of 'standard functions' in SQLBuilder (and
 SQL::SyntaxModel) to more closely reflect the SQL-2003 standard, fill other gaps.
 
-r0.05 - Update Rosetta::Engine::Generic to implement some schema reverse
+r0.06 - Update Rosetta::Engine::Generic to implement some schema reverse
 engineering functions, such as to scan a database and populate a SSM with
 descriptions of its tables, including columns and indexes.  Corresponding 
 Validator updates.  Test it against SQLite and MySQL.
 
-r0.06 - Start the Rosetta::Emulator::DBI and Rosetta::Utility::SQLParser modules 
+r0.07 - Start the Rosetta::Emulator::DBI and Rosetta::Utility::SQLParser modules 
 and try to get them working on something simple, like connecting to a database 
 and selecting records.  Maybe table creation and IUD also.
 
-r0.07 - Some time around now I will circulate some RFCs to the likes of
+r0.08 - Some time around now I will circulate some RFCs to the likes of
 dbi-users and poop-group so I know what the next major issues I have to address
 or explain are, from the viewpoints of actual potential users.  Around the same
 time, any or all of the core Rosetta/SSM modules may be updated to 'alpha'

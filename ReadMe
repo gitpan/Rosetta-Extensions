@@ -46,7 +46,7 @@ Standard Modules: none
 Nonstandard Modules: 
 
 	Locale::KeyedText 0.03 (for error messages)
-	SQL::SyntaxModel 0.17
+	SQL::SyntaxModel 0.18
 	Rosetta 0.14
 	DBI (don't know minimum version yet)
 	various DBI Driver (DBD) modules
