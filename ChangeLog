@@ -1,3 +1,59 @@
+2004-08-06   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.06.
+
+	* Updated external dependencies on Locale::KeyedText to v0.06 and on
+	SQL::SyntaxModel to v0.24 and on Rosetta to v0.16.
+
+	* Renamed Rosetta::Engine::L::en to Rosetta::Engine::Generic::L::en (now
+	v0.03); it now only contains extra messages that are specific to Generic;
+	general database messages are now stored in Rosetta::L::en.  Also, the
+	remaining 2 (from 6) user text now are prefixed by the class name, so it is
+	easier for users to know what file generated any error messages.
+
+	* Multiple updates to SQLBuilder.pm (now v0.06) and Generic.pm (now v0.03); 
+	Generic.pm had almost all of the changes.
+
+	* Fixed POD bug in SQLBuilder.pm where the build_dmanip_call_[s|u]proc()
+	methods were called build_expr_call_[s|u]proc() by mistake.
+
+	* Added new payload() method and 'payload' property to Generic.pm.  Also 
+	added new get_supported_features() method.
+
+	* Added these new Generic.pm internal methods: DESTROY(), open_dbi_connection(), 
+	close_dbi_connection(), make_ssm_node(), make_child_ssm_node(), 
+	prepare_cmd_db_list(), prepare_cmd_db_info() (empty).  Deleted these internal 
+	methods: dbi_driver_req_autocommit().
+
+	* Renamed a lot of the local variables in Generic.pm to be a lot more
+	consistent, descriptive, and scalable, meaning the code is now a lot easier
+	to read and understand.  For example, any SSM Node objects now end in
+	'_node', any Interface objects end in '_intf', any Engine objects in
+	'_eng', any "preparation" interfaces or engines have '_prep' in the middle.
+	 As an exception, for the few generic functions that can take many kinds of
+	intfs/engs rather than one specific kind, the variables are simply called
+	$interface or $preparation and $engine as before.
+
+	* Added new SUPPORTED ROSETTA FEATURES documentation section to Generic.pm,
+	expanded its DESCRIPTION, and brought the SYNOPSIS up to date with recent
+	changes to SQL::SyntaxModel.
+
+	* Added new static Generic methods get_static_const_use_auto_commit() and 
+	get_static_const_supported_features() that should be easy for sub-classes 
+	to override (see GenericAC, which does just that).
+
+	* Added new module Rosetta::Engine::GenericAC (v0.01) which sub-classes
+	Generic and should be used for database products that lack native support
+	for transactions; Generic won't even try to emulate them, but will declare
+	support for them; GenericAC will not declare support, and auto-commits.
+
+	* Several other bug fixes and changes were made in Rosetta.pm.
+
+	* For the first time, with this release, most of the Generic.pm code has
+	now been exercised and tested, in combination with external code, and is
+	now found to be working to spec.  Tests included successful runs of
+	DB_LIST, DB_OPEN, DB_CLOSE, and likewise against GenericAC.pm.
+
 2004-07-03   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.05.

@@ -11,10 +11,10 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.05';
+$VERSION = '0.06';
 
-use Locale::KeyedText 0.04;
-use SQL::SyntaxModel 0.22;
+use Locale::KeyedText 0.06;
+use SQL::SyntaxModel 0.24;
 
 ######################################################################
 
@@ -26,8 +26,8 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Locale::KeyedText 0.04 (for error messages)
-	SQL::SyntaxModel 0.22
+	Locale::KeyedText 0.06 (for error messages)
+	SQL::SyntaxModel 0.24
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -582,7 +582,8 @@ sub build_expr {
 				return( '?' ); # DBI-style positional place-holders.
 			} else {
 				# Insert named bind variable/placeholder.
-				return( ':'.$builder->build_identifier_element( $routine_arg_node ) ); # Oracle-style
+				return( ':'.$builder->build_identifier_element( $routine_arg_node ) );
+				# This named style is in the SQL-1999 standard, apparently.  Oracle also uses it.
 			}
 		} else {
 			# We are *not* within an 'ANONYMOUS' routine, so arg is a compiled routine var.
@@ -2842,9 +2843,9 @@ build_dmanip_*() methods, which are called for specific 'stmt_type' values, but
 other times this method does the work by itself.  See SQL-2003, 13.5 "<SQL
 procedure statement>" (p790) and SQL-2003, 15.2 "<return statement>" (p886).
 
-=head2 build_expr_call_sproc( STMT_NODE )
+=head2 build_dmanip_call_sproc( STMT_NODE )
 
-	my $sql = $builder->build_expr_call_sproc( $stmt_node );
+	my $sql = $builder->build_dmanip_call_sproc( $stmt_node );
 
 This method takes a "routine_stmt" Node whose 'stmt_type' is 'SPROC' and
 generates the corresponding "built-in procedure" call, which includes creation
@@ -2887,9 +2888,9 @@ This method takes a "view" Node and returns the corresponding DELETE SQL
 statement, assuming the view has details for one.  See SQL-2003, 14.7 "<delete
 statement: searched>" (p831).
 
-=head2 build_expr_call_uproc( STMT_NODE )
+=head2 build_dmanip_call_uproc( STMT_NODE )
 
-	my $sql = $builder->build_expr_call_uproc( $stmt_node );
+	my $sql = $builder->build_dmanip_call_uproc( $stmt_node );
 
 This method takes a "routine_stmt" Node whose 'stmt_type' is 'UPROC' and
 generates a call to a named PROCEDURE routine schema object.  Child "*_expr"
@@ -2914,6 +2915,7 @@ parts of it will be changed in the near future, perhaps in incompatible ways.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::SyntaxModel, Rosetta::Engine::Generic, Rosetta::Utility::SQLParser.
+perl(1), Rosetta, SQL::SyntaxModel, Rosetta::Engine::Generic,
+Rosetta::Utility::SQLParser.
 
 =cut

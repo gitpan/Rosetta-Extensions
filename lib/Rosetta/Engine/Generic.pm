@@ -11,13 +11,13 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.02';
+$VERSION = '0.03';
 
-use Locale::KeyedText 0.03;
-use SQL::SyntaxModel 0.17;
-use Rosetta 0.14;
+use Locale::KeyedText 0.06;
+use SQL::SyntaxModel 0.24;
+use Rosetta 0.16;
 use DBI;
-use Rosetta::Utility::SQLBuilder 0.02;
+use Rosetta::Utility::SQLBuilder 0.06;
 
 use base qw( Rosetta::Engine );
 
@@ -31,13 +31,13 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Locale::KeyedText 0.03 (for error messages)
-	SQL::SyntaxModel 0.17
-	Rosetta 0.14
-	DBI (v1.42 or higher recommended)
-	Rosetta::Utility::SQLBuilder 0.02
+	Locale::KeyedText 0.06 (for error messages)
+	SQL::SyntaxModel 0.24
+	Rosetta 0.16
+	DBI (v1.43 or higher recommended)
+	Rosetta::Utility::SQLBuilder 0.06
 
-I<I prefer to simply require that people have DBI v1.42 or later (newest
+I<I prefer to simply require that people have DBI v1.43 or later (newest
 version at this writing) but I am not requiring a version yet since it may not
 be easy for many people, such as ISP customers, to upgrade right now.>
 
@@ -86,43 +86,60 @@ suggesting improvements to the standard version.
 ######################################################################
 
 # Names of properties for objects of the Rosetta::Engine::Generic class are declared here:
+my $PROP_PAYLOAD = 'payload'; # If Eng fronts a LITERAL Intf, put payload it represents here.
 my $PROP_DBI_OBJ = 'dbi_obj'; # Typically either undefined or a 'dbh' or a 'sth' we are wrapping.
 my $PROP_SQL_BUILDER = 'sql_builder'; # Assoc with a connection; the SQLBuilder object we use.
 
 # Names of the allowed Interface types go here:
-my $INTFTP_ERROR       = 'error'; # What is returned if an error happens, in place of another Intf type
-my $INTFTP_TOMBSTONE   = 'tombstone'; # What is returned when execute() destroys an Interface
-my $INTFTP_APPLICATION = 'application'; # What you get when you create an Interface out of any context
+my $INTFTP_ERROR       = 'Error'; # What is returned if an error happens, in place of another Intf type
+my $INTFTP_TOMBSTONE   = 'Tombstone'; # What is returned when execute() destroys an Interface
+my $INTFTP_APPLICATION = 'Application'; # What you get when you create an Interface out of any context
 	# This type is the root of an Interface tree; when you create one, you provide an 
 	# "application_instance" SQL::SyntaxModel Node; that provides the necessary context for 
 	# subsequent "command" or "routine" Nodes you pass to any child Intf's "prepare" method.
-my $INTFTP_PREPARATION = 'preparation'; # That which is returned by the 'prepare()' method
-my $INTFTP_ENVIRONMENT = 'environment'; # Parent to all CONNECTION INTFs impl by same engine
-my $INTFTP_CONNECTION  = 'connection'; # Result of executing a 'connect' command
-my $INTFTP_TRANSACTION = 'transaction'; # Result of asking to start a new transaction
-my $INTFTP_CURSOR      = 'cursor'; # Result of executing a query that would return rows to the caller
-my $INTFTP_ROW         = 'row'; # Result of executing a query that returns one row
-my $INTFTP_LITERAL     = 'literal'; # Result of execution that isn't one of the above, like an IUD
+my $INTFTP_PREPARATION = 'Preparation'; # That which is returned by the 'prepare()' method
+my $INTFTP_ENVIRONMENT = 'Environment'; # Parent to all CONNECTION INTFs impl by same Engine
+my $INTFTP_CONNECTION  = 'Connection'; # Result of executing a 'connect' command
+my $INTFTP_TRANSACTION = 'Transaction'; # Result of asking to start a new transaction
+my $INTFTP_LITERAL     = 'Literal'; # Result of execution that isn't one of the above, like an IUD
+	# This type can be returned as the grand-child for any of [APPL, ENVI, CONN, TRAN].
+	# This type is returned by the execute() of any Command that doesn't return one of 
+	# the above 4 context INTFs, except for those that return CURSOR|ROW.
+	# Any commands that stuff new Nodes in the current SSM Container, such as the 
+	# *_LIST or *_INFO or *_CLONE Commands, will return a new Node ref as the payload.
+	# Any commands that simply do a yes/no test, such as *_VERIFY, or DB_PING, 
+	# simply have a boolean payload.
+	# IUD commands usually return this, plus method calls; payload may be a hash ref of results.
+my $INTFTP_ROW         = 'Row'; # Result of executing a query that returns one row
+my $INTFTP_CURSOR      = 'Cursor'; # Result of executing a query that would return rows to the caller
 
-# Names of SQL::SyntaxModel-recognized enumerated values such as Node types go here:
-my $SSMNTP_LINKPRD = 'data_link_product';
-my $SSMNTP_COMMAND = 'command';
-my $SSMNTP_ROUTINE = 'routine';
+# Names of features that Rosetta::Engine::Generic claims to support:
+my %SUPPORTED_FEATURES = map { ($_ => 1) } qw(
+	CONN_BASIC 
+	TRAN_BASIC 
 
-# These are SQL::SyntaxModel-recognized Command Types this Engine implements now:
-my $SSM_CMDTP_DB_OPEN      = 'DB_OPEN'     ; # call on env only
-my $SSM_CMDTP_DB_CLOSE     = 'DB_CLOSE'    ; # call on conn only
-my $SSM_CMDTP_TRA_OPEN     = 'TRA_OPEN'    ; # call on conn only
-my $SSM_CMDTP_TRA_CLOSE    = 'TRA_CLOSE'   ; # call on tra only
-my $SSM_CMDTP_TABLE_CREATE = 'TABLE_CREATE'; # call on tra only
-my $SSM_CMDTP_TABLE_DELETE = 'TABLE_DELETE'; # call on tra only
+	DOMAIN_LIST 
+	DOMAIN_DEFN_BASIC
+
+	TABLE_LIST
+	TABLE_DEFN_BASIC
+	TABLE_UKEY_BASIC TABLE_UKEY_MULTI
+
+	QUERY_BASIC
+	QUERY_RETURN_SPEC_COLS QUERY_RETURN_COL_EXPRS
+	QUERY_WHERE
+	QUERY_JOIN_BASIC QUERY_JOIN_OUTER_LEFT
+	QUERY_WINDOW_ORDER
+);
 
 ######################################################################
 
 sub new {
 	my ($class) = @_;
 	my $engine = bless( {}, ref($class) || $class );
+	$engine->{$PROP_PAYLOAD} = undef;
 	$engine->{$PROP_DBI_OBJ} = undef;
+	$engine->{$PROP_SQL_BUILDER} = undef;
 	return( $engine );
 }
 
@@ -130,7 +147,19 @@ sub new {
 
 sub destroy {
 	my ($engine, $interface) = @_;
+	my $intf_type = $interface->get_interface_type();
+	if( $intf_type eq $INTFTP_CONNECTION ) {
+		$engine->close_dbi_connection( $engine->{$PROP_DBI_OBJ} );
+	}
 	# Assume Interface won't let us be called if child Interfaces (and Engines) exist
+	%{$engine} = ();
+}
+
+sub DESTROY {
+	my ($engine) = @_;
+	if( ref($engine->{$PROP_DBI_OBJ}) eq 'DBI::db' ) { # a 'Connection'
+		$engine->close_dbi_connection( $engine->{$PROP_DBI_OBJ} );
+	}
 	%{$engine} = ();
 }
 
@@ -141,38 +170,42 @@ sub prepare {
 	my $preparation = undef;
 	my $intf_type = $interface->get_interface_type();
 	my $node_type = $routine_defn->get_node_type();
-	if( $node_type eq $SSMNTP_ROUTINE ) {
+	if( $node_type eq 'routine' ) {
 		unless( $intf_type eq $INTFTP_TRANSACTION ) {
 			$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_GEN_RTN', 
 				{ 'ITYPE' => $intf_type } );
 		}
 		$preparation = $engine->prepare_routine( $interface, $routine_defn );
-	} elsif( $node_type eq $SSMNTP_COMMAND ) {
+	} elsif( $node_type eq 'command' ) {
 		my $cmd_type = $routine_defn->get_enumerated_attribute( 'command_type' );
 		if( $intf_type eq $INTFTP_ENVIRONMENT ) {
 			# Note that 'environment' is synonymous with 'application', 
 			# but an Engine->prepare() should never be called with an 'application' Interface.
-			if( $cmd_type eq $SSM_CMDTP_DB_OPEN ) {
+			if( $cmd_type eq 'DB_LIST' ) {
+				$preparation = $engine->prepare_cmd_db_list( $interface, $routine_defn );
+			} elsif( $cmd_type eq 'DB_INFO' ) {
+				$preparation = $engine->prepare_cmd_db_info( $interface, $routine_defn );
+			} elsif( $cmd_type eq 'DB_OPEN' ) {
 				$preparation = $engine->prepare_cmd_db_open( $interface, $routine_defn );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
 					{ 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
 			}
 		} elsif( $intf_type eq $INTFTP_CONNECTION ) {
-			if( $cmd_type eq $SSM_CMDTP_DB_CLOSE ) {
+			if( $cmd_type eq 'DB_CLOSE' ) {
 				$preparation = $engine->prepare_cmd_db_close( $interface, $routine_defn );
-			} elsif( $cmd_type eq $SSM_CMDTP_TRA_OPEN ) {
+			} elsif( $cmd_type eq 'TRA_OPEN' ) {
 				$preparation = $engine->prepare_cmd_tra_open( $interface, $routine_defn );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
 					{ 'ITYPE' => $intf_type, 'CTYPE' => $cmd_type } );
 			}
 		} elsif( $intf_type eq $INTFTP_TRANSACTION ) {
-			if( $cmd_type eq $SSM_CMDTP_TRA_CLOSE ) {
+			if( $cmd_type eq 'TRA_CLOSE' ) {
 				$preparation = $engine->prepare_cmd_tra_close( $interface, $routine_defn );
-			} elsif( $cmd_type eq $SSM_CMDTP_TABLE_CREATE ) {
+			} elsif( $cmd_type eq 'TABLE_CREATE' ) {
 				$preparation = $engine->prepare_cmd_table_create( $interface, $routine_defn );
-			} elsif( $cmd_type eq $SSM_CMDTP_TABLE_DELETE ) {
+			} elsif( $cmd_type eq 'TABLE_DELETE' ) {
 				$preparation = $engine->prepare_cmd_table_delete( $interface, $routine_defn );
 			} else {
 				$engine->_throw_error_message( 'ROS_G_PREPARE_INTF_NSUP_THIS_CMD', 
@@ -191,9 +224,34 @@ sub prepare {
 
 ######################################################################
 
+sub open_dbi_connection {
+	my ($engine, $dbi_driver, $local_dsn, $login_user, $login_pass) = @_;
+	my $use_auto_commit = $engine->get_static_const_use_auto_commit(); # usually 0
+	my $dbi_dbh = DBI->connect( 
+		"DBI:".$dbi_driver.":".$local_dsn,
+		$login_user,
+		$login_pass,
+		{ RaiseError => 1, AutoCommit => $use_auto_commit },
+	); # throws exception on failure
+	return( $dbi_dbh );
+}
+
+sub close_dbi_connection {
+	my ($engine, $dbi_dbh) = @_;
+	my $use_auto_commit = $engine->get_static_const_use_auto_commit(); # usually 0
+	unless( $use_auto_commit ) {
+		$dbi_dbh->rollback(); # explicit call, since behaviour of disconnect undefined
+	}
+	$dbi_dbh->disconnect(); # throws exception on failure
+}
+
+######################################################################
+
 sub clean_up_dbi_driver_string {
 	# This code is partly derived from part of DBI->install_driver().
 	my ($engine, $driver_name) = @_;
+	# This line converts an undefined value to a defined empty string.
+	defined( $driver_name ) or $driver_name = '';
 	# This line removes any leading or trailing whitespace.
 	$driver_name =~ s|^\s*(.*?)\s*$|$1|;
 	# This line extracts the 'driver' from 'dbi:driver:*' strings.
@@ -214,15 +272,17 @@ sub install_dbi_driver {
 	# Try the catalog link instance option first, and the catalog instance data storage product second.
 	my $driver_hint = $cat_link_inst_opt_dbi_driver;
 	unless( $driver_hint ) {
-		my $dsp_node = $cat_inst_node->get_node_ref_attribute( 'data_storage_product' );
-		my $driver_hint = $dsp_node->get_literal_attribute( 'product_code' );
+		my $dsp_node = $cat_inst_node->get_node_ref_attribute( 'product' );
+		$driver_hint = $dsp_node->get_literal_attribute( 'product_code' );
 	}
 
 	# This trims the hint to essentials if it is formatted like specific DBI driver strings.
 	$driver_hint = $engine->clean_up_dbi_driver_string( $driver_hint );
 
 	# If driver hint is empty because it just contained junk characters before, then use a default.
-	$driver_hint = 'ODBC'; # This is the fall-back we use, as stated in module documentation.
+	unless( $driver_hint ) {
+		$driver_hint = 'ODBC'; # This is the fall-back we use, as stated in module documentation.
+	}
 
 	# This tests whether the driver hint exactly matches the key part of the name of a 
 	# DBI driver that is installed on the system; the driver is also installed if it exists.
@@ -274,16 +334,96 @@ sub install_dbi_driver {
 
 ######################################################################
 
-sub dbi_driver_req_autocommit {
-	my ($engine, $dbi_driver, $cat_inst_node) = @_;
-	my $auto_commit = 0; # As is the case with most drivers, probably.
+sub make_ssm_node {
+	my ($engine, $node_type, $container) = @_;
+	my $node = $container->new_node( $node_type );
+	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
+	$node->put_in_container( $container );
+	$node->add_reciprocal_links();
+	return( $node );
+}
 
-#	my $dsp_node = $cat_inst_node->get_node_ref_attribute( 'data_storage_product' );
-#	my $storage_product_node = $dsp_node->get_literal_attribute( 'product_code' );
+sub make_child_ssm_node {
+	my ($engine, $node_type, $pp_node, $pp_attr) = @_;
+	my $container = $pp_node->get_container();
+	my $node = $pp_node->new_node( $node_type );
+	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
+	$node->put_in_container( $container );
+	$node->add_reciprocal_links();
+	$node->set_node_ref_attribute( $pp_attr, $pp_node );
+	$node->set_parent_node_attribute_name( $pp_attr );
+	return( $node );
+}
 
-	$dbi_driver =~ m|MySQL|i and $auto_commit = 1; # A haxie; make smart later.
+######################################################################
 
-	return( $auto_commit );
+sub prepare_cmd_db_list {
+	my ($env_eng, $env_intf, $command_bp_node) = @_;
+
+	my $container = $command_bp_node->get_container();
+	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_ssm_node();
+	my $app_bp_node = $app_inst_node->get_node_ref_attribute( 'blueprint' );
+
+	my $routine = sub {
+		# This routine is a closure.
+		my ($rtv_lit_prep_eng, $rtv_lit_prep_intf, $rtv_args) = @_;
+
+		my @cat_link_inst_nodes = ();
+
+		my $dlp_node = $env_intf->get_ssm_node(); # A 'data_link_product' Node (repr ourself).
+		foreach my $dbi_driver (DBI->available_drivers()) {
+			# Tested $dbi_driver values on my system are (space-delimited):
+			# [DBM ExampleP File Proxy SQLite Sponge mysql]; they are ready to use as is.
+			eval { DBI->install_driver( $dbi_driver ); }; $@ and next; # Skip bad driver.
+			# If we get here, then the $dbi_driver will load without problems.
+			my $dsp_node = $env_eng->make_ssm_node( 'data_storage_product', $container );
+			$dsp_node->set_literal_attribute( 'product_code', $dbi_driver );
+			foreach my $dbi_data_source (DBI->data_sources( $dbi_driver )) {
+				#Examples of $dbi_data_source formats are: 
+				#dbi:DriverName:database_name
+				#dbi:DriverName:database_name@hostname:port
+				#dbi:DriverName:database=database_name;host=hostname;port=port 
+				my (undef, undef, $local_dsn) = split( ':', $dbi_data_source );
+				my $cat_bp_node = $env_eng->make_ssm_node( 'catalog', $container );
+				my $cat_link_bp_node = $env_eng->make_child_ssm_node( 
+					'catalog_link', $app_bp_node, 'application' );
+				$cat_link_bp_node->set_literal_attribute( 'name', $dbi_data_source );
+				$cat_link_bp_node->set_node_ref_attribute( 'target', $cat_bp_node );
+				my $cat_inst_node = $env_eng->make_ssm_node( 'catalog_instance', $container );
+				$cat_inst_node->set_node_ref_attribute( 'product', $dsp_node );
+				$cat_inst_node->set_node_ref_attribute( 'blueprint', $cat_bp_node );
+				$cat_inst_node->set_literal_attribute( 'name', $dbi_data_source );
+				my $cat_link_inst_node = $env_eng->make_child_ssm_node( 
+					'catalog_link_instance', $app_inst_node, 'application' );
+				$cat_link_inst_node->set_node_ref_attribute( 'product', $dlp_node );
+				$cat_link_inst_node->set_node_ref_attribute( 'unrealized', $cat_link_bp_node );
+				$cat_link_inst_node->set_node_ref_attribute( 'target', $cat_inst_node );
+				$cat_link_inst_node->set_literal_attribute( 'local_dsn', $local_dsn );
+				push( @cat_link_inst_nodes, $cat_link_inst_node );
+			}
+		}
+
+		my $rtv_lit_eng = $rtv_lit_prep_eng->new();
+		$rtv_lit_eng->{$PROP_PAYLOAD} = \@cat_link_inst_nodes;
+
+		my $rtv_lit_intf = $rtv_lit_prep_intf->new( $INTFTP_LITERAL, undef, 
+			$rtv_lit_prep_intf, $rtv_lit_eng );
+		return( $rtv_lit_intf );
+	};
+
+	my $lit_prep_eng = $env_eng->new();
+
+	my $lit_prep_intf = $env_intf->new( $INTFTP_PREPARATION, undef, 
+		$env_intf, $lit_prep_eng, $command_bp_node, $routine );
+	return( $lit_prep_intf );
+}
+
+######################################################################
+
+sub prepare_cmd_db_info {
+	my ($env_eng, $env_intf, $command_bp_node) = @_;
+
+
 }
 
 ######################################################################
@@ -293,8 +433,7 @@ sub prepare_cmd_db_open {
 
 	# This block gathers info from SSM which describes db connection we are to open.
 	my $container = $command_bp_node->get_container();
-	my $cat_link_bp_id = $command_bp_node->get_literal_attribute( 'command_arg' );
-	my $cat_link_bp_node = $container->get_node( 'catalog_link', $cat_link_bp_id );
+	my $cat_link_bp_node = $command_bp_node->get_node_ref_attribute( 'command_arg_1' );
 	my $app_inst_node = $env_intf->get_parent_interface()->get_parent_interface()->get_ssm_node();
 	my $cat_link_inst_node = undef;
 	foreach my $link (@{$app_inst_node->get_child_nodes( 'catalog_link_instance' )}) {
@@ -314,34 +453,29 @@ sub prepare_cmd_db_open {
 	my $login_pass = $cat_link_inst_opts{'login_pass'} || 
 		$cat_link_inst_node->get_literal_attribute( 'login_pass' );
 	my $dbi_driver = $env_eng->install_dbi_driver( $cat_link_inst_opts{'dbi_driver'}, $cat_inst_node );
-	my $auto_commit = $env_eng->dbi_driver_req_autocommit( $dbi_driver, $cat_inst_node ); # usually 0
 
 	my $builder = $env_eng->{$PROP_SQL_BUILDER} = Rosetta::Utility::SQLBuilder->new();
 	$cat_link_inst_opts{'delim_ident'} and 
 		$builder->delimited_identifiers( $cat_link_inst_opts{'delim_ident'} );
 
-	my $conn_prep_eng = $env_eng->new();
-
 	my $routine = sub {
 		# This routine is a closure.
-		my ($rtv_prep_eng, $rtv_prep_intf, $rtv_args) = @_;
+		my ($rtv_conn_prep_eng, $rtv_conn_prep_intf, $rtv_args) = @_;
 		$rtv_args->{'local_user'} and $login_user = $rtv_args->{'local_user'};
 		$rtv_args->{'local_pass'} and $login_pass = $rtv_args->{'local_pass'};
 
-		my $dbi_dbh = DBI->connect( 
-			"DBI:".$dbi_driver.":".$local_dsn,
-			$login_user,
-			$login_pass,
-			{ RaiseError => 1, AutoCommit => $auto_commit },
-		);
+		my $dbi_dbh = $rtv_conn_prep_eng->open_dbi_connection( 
+			$dbi_driver, $local_dsn, $login_user, $login_pass );
 
-		my $conn_eng = $rtv_prep_eng->new();
-		$conn_eng->{$PROP_DBI_OBJ} = $dbi_dbh;
+		my $rtv_conn_eng = $rtv_conn_prep_eng->new();
+		$rtv_conn_eng->{$PROP_DBI_OBJ} = $dbi_dbh;
 
-		my $conn_intf = $rtv_prep_intf->new( $INTFTP_CONNECTION, undef, 
-			$rtv_prep_intf, $conn_eng, $command_bp_node );
-		return( $conn_intf );
+		my $rtv_conn_intf = $rtv_conn_prep_intf->new( $INTFTP_CONNECTION, undef, 
+			$rtv_conn_prep_intf, $rtv_conn_eng );
+		return( $rtv_conn_intf );
 	};
+
+	my $conn_prep_eng = $env_eng->new();
 
 	my $conn_prep_intf = $env_intf->new( $INTFTP_PREPARATION, undef, 
 		$env_intf, $conn_prep_eng, $command_bp_node, $routine );
@@ -351,39 +485,61 @@ sub prepare_cmd_db_open {
 ######################################################################
 
 sub prepare_cmd_db_close {
-	my ($conn_eng, $conn_intf, $routine_defn) = @_;
+	my ($conn_eng, $conn_intf, $command_bp_node) = @_;
 
 	my $routine = sub {
 		# This routine is a closure.
-		my ($rtv_prep_eng, $rtv_prep_intf, undef) = @_;
-		my $rtv_siblings = $conn_intf->get_child_interfaces();
-		if( @{$rtv_siblings} > 1 or $rtv_siblings->[0] ne $conn_eng ) {
-			$rtv_prep_eng->_throw_error_message( 'ROS_G_CMD_DB_CLOSE_CONN_IN_USE' );
+		my ($rtv_tomb_prep_eng, $rtv_tomb_prep_intf, undef) = @_;
+
+		if( @{$rtv_tomb_prep_intf->get_sibling_interfaces( 1 )} > 0 ) {
+			$rtv_tomb_prep_eng->_throw_error_message( 'ROS_G_CMD_DB_CLOSE_CONN_IN_USE' );
 		}
-		$conn_eng->{$PROP_DBI_OBJ}->disconnect();
-		my $tombstone = $rtv_prep_intf->new( $INTFTP_TOMBSTONE );
-		$rtv_prep_intf->destroy();
+
+		$conn_eng->close_dbi_connection( $conn_eng->{$PROP_DBI_OBJ} );
+
+		my $rtv_tomb_intf = $rtv_tomb_prep_intf->new( $INTFTP_TOMBSTONE );
+		$rtv_tomb_prep_intf->destroy();
 		$conn_intf->destroy(); # removes last ref to DBI dbh object
-		return( $conn_intf );
+		return( $rtv_tomb_intf );
 	};
 
-	my $prep_eng = $conn_eng->new();
-	my $prep_intf = $conn_intf->new( $INTFTP_PREPARATION, undef, 
-		$conn_intf, $prep_eng, $routine_defn, $routine );
-	return( $prep_intf );
+	my $tomb_prep_eng = $conn_eng->new();
+
+	my $tomb_prep_intf = $conn_intf->new( $INTFTP_PREPARATION, undef, 
+		$conn_intf, $tomb_prep_eng, $command_bp_node, $routine );
+	return( $tomb_prep_intf );
+}
+
+######################################################################
+
+sub get_supported_features {
+	my ($env_eng, $env_intf, $feature_name) = @_;
+	my $rh_supported_features = $env_eng->get_static_const_supported_features();
+	if( defined( $feature_name ) ) {
+		return( $rh_supported_features->{$feature_name} );
+	} else {
+		return( {%{$rh_supported_features}} );
+	}
+}
+
+######################################################################
+
+sub payload {
+	my ($lit_eng, $lit_intf) = @_;
+	return( $lit_eng->{$PROP_PAYLOAD} );
 }
 
 ######################################################################
 
 sub finalize {
-	my ($engine, $interface) = @_;
+	my ($curs_eng, $curs_intf) = @_;
 	# Now DO something.
 }
 
 ######################################################################
 
 sub has_more_rows {
-	my ($engine, $interface) = @_;
+	my ($curs_eng, $curs_intf) = @_;
 	# Now DO something.
 	return( 0 );
 }
@@ -391,7 +547,7 @@ sub has_more_rows {
 ######################################################################
 
 sub fetch_row {
-	my ($engine, $interface) = @_;
+	my ($curs_eng, $curs_intf) = @_;
 	# Now DO something.
 	return( {} );
 }
@@ -399,14 +555,28 @@ sub fetch_row {
 ######################################################################
 
 sub fetch_all_rows {
-	my ($engine, $interface) = @_;
+	my ($curs_eng, $curs_intf) = @_;
 	# Now DO something.
 	my @rows = ();
-	while( $engine->has_more_rows() ) {
-		push( @rows, $engine->fetch_row() );
+	while( $curs_eng->has_more_rows() ) {
+		push( @rows, $curs_eng->fetch_row() );
 	}
-	$engine->finalize();
+	$curs_eng->finalize();
 	return( \@rows );
+}
+
+######################################################################
+
+sub get_static_const_use_auto_commit {
+	# This function is separated so sub-classes can override it easily.
+	return( 0 );
+}
+
+######################################################################
+
+sub get_static_const_supported_features {
+	# This function is separated so sub-classes can override it easily.
+	return( \%SUPPORTED_FEATURES );
 }
 
 ######################################################################
@@ -428,10 +598,10 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 	my $model = SQL::SyntaxModel->new_container();
 
 	# Now create the model root node representing the app running right now / that we are.
-	my $app_bp = make_a_node( 'application', 1, $model );
+	my $app_bp = make_a_node( 'application', $model );
 
 	# Define an application instance, for testers, which is the app running right now.
-	my $test_app = make_a_node( 'application_instance', 1, $model );
+	my $test_app = make_a_node( 'application_instance', $model );
 	$test_app->set_node_ref_attribute( 'blueprint', $app_bp );
 
 	# Now create a new Rosetta Interface tree that will mediate db access for us.
@@ -440,8 +610,8 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 	# Now create the model root node that represents a database/catalog we will 
 	# be using (may be several), and a node belonging to said app representing a 
 	# yet-unrealized data connection from the app to the db.
-	my $catalog_bp = make_a_node( 'catalog', 1, $model );
-	my $app_cl = make_a_child_node( 'catalog_link', 1, $app_bp, 'application' );
+	my $catalog_bp = make_a_node( 'catalog', $model );
+	my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'application' );
 	$app_cl->set_literal_attribute( 'name', 'big_data' );
 	$app_cl->set_node_ref_attribute( 'target', $catalog_bp );
 
@@ -450,32 +620,32 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 	# application-stored queries or routines that would run against the db.
 
 	# As an example of the above, a command to 'connect' to the database.
-	my $open_cmd = make_a_child_node( 'command', 1, $app_bp, 'application' );
+	my $open_cmd = make_a_child_node( 'command', $app_bp, 'application' );
 	$open_cmd->set_enumerated_attribute( 'command_type', 'DB_OPEN' );
-	$open_cmd->set_literal_attribute( 'command_arg', 1 ); # id num of $app_cl
+	$open_cmd->set_node_ref_attribute( 'command_arg_1', $app_cl );
 
 	# Now create the node that says we will use Rosetta::Engine::Generic as 
 	# our data link product to talk to some database.
-	my $dlp = make_a_node( 'data_link_product', 1, $model );
+	my $dlp = make_a_node( 'data_link_product', $model );
 	$dlp->set_literal_attribute( 'product_code', 'Rosetta::Engine::Generic' );
 
 	# Now create the model node that says what data storage product we will 
 	# use to implement/host the catalog/database, Oracle 9i in this case.
 	# The string 'Oracle_9_i' is something that Rosetta::Engine::Generic 
 	# and/or its supporting modules specifically recognize.
-	my $dsp = make_a_node( 'data_storage_product', 1, $model );
+	my $dsp = make_a_node( 'data_storage_product', $model );
 	$dsp->set_literal_attribute( 'product_code', 'Oracle_9_i' );
 	$dsp->set_literal_attribute( 'is_network_svc', 1 );
 
 	# Define a database catalog instance, in this case, an Oracle db for testers.
-	my $test_db = make_a_node( 'catalog_instance', 1, $model );
+	my $test_db = make_a_node( 'catalog_instance', $model );
 	$test_db->set_node_ref_attribute( 'product', $dsp );
 	$test_db->set_node_ref_attribute( 'blueprint', $catalog_bp );
 
 	# Now realize the data connection to run from the app instance to the catalog instance.
 	# This is where we say that the app running right now (we) will use Rosetta::Engine::Generic.
 	# Each application instance may only have 1 realization of the same unrealized link.
-	my $test_app_cl = make_a_child_node( 'catalog_link_instance', 1, $test_app, 'application' );
+	my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'application' );
 	$test_app_cl->set_node_ref_attribute( 'product', $dlp );
 	$test_app_cl->set_node_ref_attribute( 'unrealized', $app_cl );
 	$test_app_cl->set_node_ref_attribute( 'target', $test_db );
@@ -494,19 +664,20 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 	# ... Now we do whatever else we wanted to do with the database, such as running queries.
 
 	sub make_a_node {
-		my ($node_type, $node_id, $model) = @_;
+		my ($node_type, $model) = @_;
 		my $node = $model->new_node( $node_type );
-		$node->set_node_id( $node_id );
+		$node->set_node_id( $model->get_next_free_node_id( $node_type ) );
 		$node->put_in_container( $model );
 		$node->add_reciprocal_links();
 		return( $node );
 	}
 
 	sub make_a_child_node {
-		my ($node_type, $node_id, $pp_node, $pp_attr) = @_;
+		my ($node_type, $pp_node, $pp_attr) = @_;
+		my $container = $pp_node->get_container();
 		my $node = $pp_node->new_node( $node_type );
-		$node->set_node_id( $node_id );
-		$node->put_in_container( $pp_node->get_container() );
+		$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
+		$node->put_in_container( $container );
 		$node->add_reciprocal_links();
 		$node->set_node_ref_attribute( $pp_attr, $pp_node );
 		$node->set_parent_node_attribute_name( $pp_attr );
@@ -521,7 +692,7 @@ above, it would look like this:
 		<blueprints>
 			<application id="1">
 				<catalog_link id="1" application="1" name="big_data" target="1" />
-				<command id="1" application="1" command_type="DB_OPEN" command_arg="1" />
+				<command id="1" application="1" command_type="DB_OPEN" command_arg_1="1" />
 			</application>
 			<catalog id="1" />
 		</blueprints>
@@ -568,8 +739,43 @@ objects of Rosetta::Engine::Generic directly; rather, you use this module
 indirectly through the Rosetta::Interface class.  Following this logic, there 
 is no class function or method documentation here.
 
+Note that Rosetta::Engine::Generic will always use transactions and require
+explicit commits for database actions to be saved; it will also declare its
+transaction support in its feature set.  Since transactions are too difficult
+to emulate properly, Generic won't try; it simply won't work as expected with
+databases that lack native support.  A second Engine named ::GenericAC exists
+for non-transactional databases, and declares its lack of support for the
+feature.  This Engine sub-classes Generic and should be identical except for
+the fact that it conceptually auto-commits every database action; if used with
+a transaction-supporting database, it will auto-commit, to emulate the
+non-support behaviour.  See Rosetta::Engine::GenericAC for further details.
+
 I<CAVEAT: THIS ENGINE IS "UNDER CONSTRUCTION" AND MANY FEATURES DESCRIBED BY 
 SQL::SyntaxModel ARE NOT YET IMPLEMENTED.>
+
+=head1 SUPPORTED ROSETTA FEATURES
+
+Rosetta::Engine::Generic explicitly declares support for the following Rosetta
+Native Interface features:
+
+	CONN_BASIC 
+	TRAN_BASIC 
+
+	DOMAIN_LIST 
+	DOMAIN_DEFN_BASIC
+
+	TABLE_LIST
+	TABLE_DEFN_BASIC
+	TABLE_UKEY_BASIC TABLE_UKEY_MULTI
+
+	QUERY_BASIC
+	QUERY_RETURN_SPEC_COLS QUERY_RETURN_COL_EXPRS
+	QUERY_WHERE
+	QUERY_JOIN_BASIC QUERY_JOIN_OUTER_LEFT
+	QUERY_WINDOW_ORDER
+
+This Engine may contain code that supports additional features, but these have
+not been tested at all and so are not yet declared.
 
 =head1 ENGINE CONFIGURATION OPTIONS
 
@@ -656,6 +862,7 @@ using older versions then there may be un-anticipated problems.
 
 =head1 SEE ALSO
 
-perl(1), Rosetta, SQL::SyntaxModel, DBI.
+perl(1), Rosetta, SQL::SyntaxModel, Locale::KeyedText,
+Rosetta::Utility::SQLBuilder, DBI.
 
 =cut

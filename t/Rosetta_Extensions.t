@@ -5,9 +5,10 @@
 
 BEGIN { $| = 1; print "1..1\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Rosetta::Utility::SQLBuilder 0.05;
-use Rosetta::Engine::Generic 0.02;
-use Rosetta::Engine::L::en 0.02;
+use Rosetta::Utility::SQLBuilder 0.06;
+use Rosetta::Engine::Generic 0.03;
+use Rosetta::Engine::Generic::L::en 0.03;
+use Rosetta::Engine::GenericAC 0.01;
 $loaded = 1;
 print "ok 1\n";
 use strict;
@@ -39,7 +40,7 @@ sub message {
 sub error_to_string {
 	my ($message) = @_;
 	ref($message) or return( $message ); # if this isn't an object
-	my $translator = Locale::KeyedText->new_translator( ['Rosetta::Engine::L::', 
+	my $translator = Locale::KeyedText->new_translator( ['Rosetta::Engine::Generic::L::', 
 		'Rosetta::L::', 'SQL::SyntaxModel::L::'], ['en'] );
 	my $user_text = $translator->translate_message( $message );
 	unless( $user_text ) {
