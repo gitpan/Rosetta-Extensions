@@ -1,3 +1,30 @@
+2004-11-06   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.12.
+
+	* New code file versions are: Generic.pm v0.09, SQLBuilder.pm v0.12.
+
+	* Removed the temporary explicit external dependency on SQL::Routine v0.46.
+
+	* Updated external dependencies on Rosetta to v0.38 and on DBI to v1.45.
+
+	* The major change in this release is to the Rosetta_Extensions.t test
+	file, which was rewritten to invoke Rosetta::Validator; that module will
+	now handle the details of testing Rosetta::Engine::Generic and its
+	dependencies, as a common test suite for Engines.  Currently, 5 tests are
+	run, of which 3 pass and 2 are skipped; Generic does not declare support
+	for the latter 2.  Any further updates to Generic.pm will have
+	corresponding updates in Validator.pm, and/or likewise in the reverse.
+
+	* SQLBuilder.pm had no changes except for the dependency update.
+
+	* Generic.pm had those plus a few more changes:  Renamed any SQL::Routine
+	calls on the set_parent_node_attribute_name() method to
+	set_pp_node_attribute_name().  Updated open_dbi_connection() to explicitly
+	use an empty-string $local_dsn if the given one is undefined; this avoids a
+	warning for driver types that legitimately use no DSN.  Minor update to the
+	tracing output in build_perl_routine().
+
 2004-10-30   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.11.

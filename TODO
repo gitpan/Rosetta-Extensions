@@ -16,7 +16,7 @@ TABLE_INFO, TABLE_VERIFY, TABLE_CREATE, TABLE_DELETE.  Test that they work
 against SQLite and MySQL.  In other words, make sure that table creation,
 removal, and reverse-engineering for tables works with SQLite and MySQL.  At
 this moment, reverse-engineering will be done manually since it's simple.  If
-possible, do this using: Perl 5.8.5, DBI 1.43, SQLite 3.0.8+, MySQL 4.1.7+.
+possible, do this using: Perl 5.8.5, DBI 1.45, SQLite 3.0.8+, MySQL 4.1.7+.
 Once that's done, announce Rosetta/SQL::Routine Developer Release #2.  Make
 application-side standard routines work, so that the standard selects and DML
 are possible.

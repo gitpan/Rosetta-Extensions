@@ -10,10 +10,9 @@ package Rosetta::Utility::SQLBuilder;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
-use Rosetta '0.37';
-use SQL::Routine '0.46'; # This explicit dependency is for Rosetta-Extensions-0.11 only.
+use Rosetta '0.38';
 
 ######################################################################
 
@@ -25,8 +24,7 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.37
-	SQL::Routine 0.46 (This explicit dependency is for Rosetta-Extensions-0.11 only.)
+	Rosetta 0.38
 
 =head1 COPYRIGHT AND LICENSE
 

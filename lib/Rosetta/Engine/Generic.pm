@@ -10,12 +10,11 @@ package Rosetta::Engine::Generic;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
-use Rosetta '0.37';
-use SQL::Routine '0.46'; # This explicit dependency is for Rosetta-Extensions-0.11 only.
-use DBI '1.43';
-use Rosetta::Utility::SQLBuilder '0.11';
+use Rosetta '0.38';
+use DBI '1.45';
+use Rosetta::Utility::SQLBuilder '0.12';
 
 use base qw( Rosetta::Engine );
 
@@ -29,10 +28,9 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.37
-	SQL::Routine 0.46 (This explicit dependency is for Rosetta-Extensions-0.11 only.)
-	DBI 1.43 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.11
+	Rosetta 0.38
+	DBI 1.45 (highest version recommended)
+	Rosetta::Utility::SQLBuilder 0.12
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -386,7 +384,8 @@ __EOL
 __EOL
 
 	if( my $trace_fh = $interface->get_trace_fh() ) {
-		print $trace_fh "Built a new routine whose code is:\n----------\n$routine_str\n----------\n";
+		my $class = ref($engine);
+		print $trace_fh "$class built a new routine whose code is:\n----------\n$routine_str\n----------\n";
 	}
 
 	my $routine = eval $routine_str;
@@ -690,7 +689,7 @@ sub build_perl_literal_cstr_from_atvl {
 sub open_dbi_connection {
 	my ($engine, $dbi_driver, $local_dsn, $login_name, $login_pass, $auto_commit) = @_;
 	my $dbi_dbh = DBI->connect( 
-		"DBI:".$dbi_driver.":".$local_dsn,
+		"DBI:".$dbi_driver.":".($local_dsn||''),
 		$login_name,
 		$login_pass,
 		{ RaiseError => 1, AutoCommit => $auto_commit },
@@ -810,7 +809,7 @@ sub make_child_srt_node {
 	$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
 	$node->put_in_container( $container );
 	$node->set_node_ref_attribute( $pp_attr, $pp_node );
-	$node->set_parent_node_attribute_name( $pp_attr );
+	$node->set_pp_node_attribute_name( $pp_attr );
 	return( $node );
 }
 
@@ -1131,7 +1130,7 @@ standard Rosetta Engine module for that matter (about 40 lines of code).
 		$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
 		$node->put_in_container( $container );
 		$node->set_node_ref_attribute( $pp_attr, $pp_node );
-		$node->set_parent_node_attribute_name( $pp_attr );
+		$node->set_pp_node_attribute_name( $pp_attr );
 		return( $node );
 	}
 

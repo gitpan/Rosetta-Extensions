@@ -3,10 +3,9 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
 	NAME	=> 'Rosetta::Extensions',
-	VERSION => '0.11', # for the distribution itself, not of individual modules
+	VERSION => '0.12', # for the distribution itself, not of individual modules
 	PREREQ_PM => {
-		'Rosetta' => '0.37',
-		'SQL::Routine' => '0.46', # This explicit dependency is for Rosetta-Extensions-0.11 only.
-		'DBI' => '1.43',
+		'Rosetta' => '0.38',
+		'DBI' => '1.45',
 	},
 );
