@@ -10,8 +10,7 @@ package Rosetta::Engine::Generic::L::en;
 use 5.006;
 use strict;
 use warnings;
-use vars qw($VERSION);
-$VERSION = '0.04';
+our $VERSION = '0.05';
 
 ######################################################################
 

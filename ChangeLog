@@ -1,3 +1,64 @@
+2004-09-09   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.08.
+
+	* New code file versions are: SQLBuilder.pm v0.08, Generic.pm v0.05, en.pm
+	v0.05.
+
+	* Updated all versioned *.pm files to use the modern syntax "our $VERSION =
+	..." instead of "use vars qw($VERSION); $VERSION = ...".
+
+	* From now on, any modules that have 'Rosetta' as an explicit dependency
+	will also have implicit dependencies on the same versions of
+	[SQL::SyntaxModel, Locale::KeyedText] that Rosetta explicitly depends on;
+	the explicit dependencies on those two modules are now gone.  If either of
+	the two modules are updated and a Rosetta-using module requires a newer
+	version, then that module should simply update its requirement to a version
+	of Rosetta that itself requires the implicit dependency.
+
+	* Updated external dependencies on Rosetta to v0.35.
+
+	* Renamed these methods in SQLBuilder.pm: positional_bind_vars() =>
+	positional_host_params(), make_bind_vars() => make_host_params(),
+	[get|clear]_positional_bind_var_map_array =>
+	[get|clear]_positional_host_param_map_array().  Also renamed the
+	corresponding 3 class properties.  Also renamed all documentation
+	references of "bind variables" to "host parameters", since that is the
+	official name for them in the SQL-2003 standard.
+
+	* In SQLBuilder.pm, split off new method from build_expr() named
+	build_identifier_host_parameter_name(), which handles the 'ARG' case.  Also
+	added some code documentation to quote_identifier().
+
+	* Updated/simplified the build_query_into_clause() method in SQLBuilder.pm
+	to account for recent changes in SQL::SyntaxModel where relevant details
+	are stored in view_col Nodes rather than view_expr Nodes.
+
+	* Added some code docs to SQLBuilder.build_schema_table_create().
+
+	* Updated the build_schema_routine_create() method in SQLBuilder.pm to
+	account for recent changes in SQL::SyntaxModel regarding TRIGGER routines
+	where [table,view] attrs renamed to [trigger_on_table,trigger_on_view].
+
+	* Updated SQLBuilder.pm documentation and comments to either remove any
+	references to an ANONYMOUS routine_type (no longer exists), or replace them
+	with "application-side routine".
+
+	* Updated the build_dmanip_call_uproc() method in SQLBuilder.pm to account
+	for recent changes in SQL::SyntaxModel where the routine_expr attribute
+	'call_uproc_arg' is used for uprocs instead of overloaded 'call_ufunc_arg'.
+
+	* Changed each reference on the SSM 'command' Node attribute
+	'command_arg_1' to a reference on that Node's child 'command_arg' Node.
+
+	* Updated Generic.pm so that the DB_LIST command now produces more useful
+	results, and so that the DB_OPEN command now consults the
+	catalog_instance[_opt] attributes that correspond to the used catalog_link, 
+	and so that any thrown exceptions include the class name as an argument.
+
+	* Rewrote the top half of the TODO file so it is more accurate concerning 
+	my development road map.
+
 2004-08-16   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.07.

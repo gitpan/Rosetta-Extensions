@@ -10,11 +10,9 @@ package Rosetta::Utility::SQLBuilder;
 use 5.006;
 use strict;
 use warnings;
-use vars qw($VERSION);
-$VERSION = '0.07';
+our $VERSION = '0.08';
 
-use Locale::KeyedText 0.06;
-use SQL::SyntaxModel 0.38;
+use Rosetta 0.35;
 
 ######################################################################
 
@@ -26,8 +24,7 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Locale::KeyedText 0.06 (for error messages)
-	SQL::SyntaxModel 0.38
+	Rosetta 0.35
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -79,7 +76,7 @@ practical way of suggesting improvements to the standard version.
 # Names of properties for objects of the Rosetta::Utility::SQLBuilder class are declared here:
 # This set of properties are generally set once at the start of a SQLBuilder object's life 
 # and aren't changed later, since they are generally static configuration data.
-my $PROP_POSIT_BVARS = 'posit_bvars'; # boolean; true if bind vars are positional; false if named
+my $PROP_POSIT_HPRMS = 'posit_hprms'; # boolean; true if host params are positional; false if named
 my $PROP_DELIM_IDENT = 'delim_ident'; # boolean; true if identifiers are delimited, case-sensitive
 my $PROP_IDENT_QUOTC = 'ident_quotc'; # character; character used to delimit identifiers with
 my $PROP_DATA_TYPES  = 'data_types' ; # hash ref
@@ -98,8 +95,8 @@ my $PROP_ET_JOIN_CHARS = 'et_join_chars'; # char str; join parts of temp table n
 # the life of about one external build* method call) that are only set externally as 
 # usual, or some may also be set or changed by SQLBuilder code, and can be used effectively 
 # as extra output from the build* method; they maintain state for a build* invocation.
-my $PROP_MAKE_BVARS = 'make_bvars'; # boolean; true when routine vars are bind vars, false when not
-my $PROP_PBV_MAP_ARY = 'pbv_map_ary'; # array ref; holds state for bind var map  of current sql code
+my $PROP_MAKE_HPRMS = 'make_hprms'; # boolean; true when routine vars are host params, false when not
+my $PROP_PHP_MAP_ARY = 'php_map_ary'; # array ref; holds state for host param map  of current sql code
 my $PROP_UNWRAP_VIEWS = 'unwrap_views'; # boolean; true to use original src names, false for correl
 
 # Names of specific data types, used as keys in $PROP_DATA_TYPES hash.
@@ -159,7 +156,7 @@ sub new {
 	my ($class) = @_;
 	my $builder = bless( {}, ref($class) || $class );
 
-	$builder->{$PROP_POSIT_BVARS} = 0;
+	$builder->{$PROP_POSIT_HPRMS} = 0;
 	$builder->{$PROP_DELIM_IDENT} = 0;
 	$builder->{$PROP_IDENT_QUOTC} = '"'; # doublequote given in ANSI example
 		# set to '"' for Oracle and FireBird, '`' for MySQL
@@ -175,8 +172,8 @@ sub new {
 	$builder->{$PROP_EMUL_COMPOUND} = 0;
 	$builder->{$PROP_ET_JOIN_CHARS} = '__';
 
-	$builder->{$PROP_MAKE_BVARS} = 0;
-	$builder->{$PROP_PBV_MAP_ARY} = [];
+	$builder->{$PROP_MAKE_HPRMS} = 0;
+	$builder->{$PROP_PHP_MAP_ARY} = [];
 	$builder->{$PROP_UNWRAP_VIEWS} = 0;
 
 	return( $builder );
@@ -241,12 +238,12 @@ sub _get_default_data_type_customizations {
 
 ######################################################################
 
-sub positional_bind_vars {
+sub positional_host_params {
 	my ($builder, $new_value) = @_;
 	if( defined( $new_value ) ) {
-		$builder->{$PROP_POSIT_BVARS} = $new_value;
+		$builder->{$PROP_POSIT_HPRMS} = $new_value;
 	}
-	return( $builder->{$PROP_POSIT_BVARS} );
+	return( $builder->{$PROP_POSIT_HPRMS} );
 }
 
 ######################################################################
@@ -373,24 +370,24 @@ sub emulated_query_temp_table_join_chars {
 
 ######################################################################
 
-sub make_bind_vars {
+sub make_host_params {
 	my ($builder, $new_value) = @_;
 	if( defined( $new_value ) ) {
-		$builder->{$PROP_MAKE_BVARS} = $new_value;
+		$builder->{$PROP_MAKE_HPRMS} = $new_value;
 	}
-	return( $builder->{$PROP_MAKE_BVARS} );
+	return( $builder->{$PROP_MAKE_HPRMS} );
 }
 
 ######################################################################
 
-sub get_positional_bind_var_map_array {
+sub get_positional_host_param_map_array {
 	my ($builder) = @_;
-	return( [@{$builder->{$PROP_PBV_MAP_ARY}}] );
+	return( [@{$builder->{$PROP_PHP_MAP_ARY}}] );
 }
 
-sub clear_positional_bind_var_map_array {
+sub clear_positional_host_param_map_array {
 	my ($builder) = @_;
-	@{$builder->{$PROP_PBV_MAP_ARY}} = ();
+	@{$builder->{$PROP_PHP_MAP_ARY}} = ();
 }
 
 ######################################################################
@@ -461,8 +458,11 @@ sub quote_boolean_literal {
 ######################################################################
 
 sub quote_identifier {
+	# SQL-2003, 5.2 "<token> and <separator>" (p134)
+	# SQL-2003, 5.4 "Names and identifiers" (p151)
 	my ($builder, $name) = @_;
 	if( $builder->{$PROP_DELIM_IDENT} ) {
+		# <delimited identifier> ::= <double quote><delimited identifier body><double quote>
 		my $quotc = $builder->{$PROP_IDENT_QUOTC};
 		$name =~ s|$quotc|$quotc$quotc|g;
 		$name = $quotc.$name.$quotc;
@@ -471,7 +471,7 @@ sub quote_identifier {
 		$name =~ s|[^A-Z0-9_]||g;
 	}
 	return( $name );
-	# More work is needed.  See SQL-2003, 02-Foundation, 5.4 Names and identifiers (pg 151).
+	# More work is needed.  
 	# We need to support <regular identifier> and <delimited identifier> 
 	# and <Unicode delimited identifier>; only first two are done now.
 }
@@ -481,6 +481,24 @@ sub build_identifier_element {
 	# such as a local variable.
 	my ($builder, $object_node) = @_;
 	return( $builder->quote_identifier( $object_node->get_literal_attribute( 'name' ) ) );
+}
+
+sub build_identifier_host_parameter_name { 
+	# SQL-2003, 4.29 "Host parameters" (pp90,91,92)
+	# SQL-2003, 5.4 "Names and identifiers" (pp151,152)
+	# SQL-2003 Foundation page 152 says: <host parameter name> ::= <colon><identifier>
+	my ($builder, $routine_arg_node) = @_;
+	my $routine_arg_name = $routine_arg_node->get_literal_attribute( 'name' );
+	if( $builder->{$PROP_POSIT_HPRMS} ) {
+		# Insert positional host parameter/placeholder.
+		push( @{$builder->{$PROP_PHP_MAP_ARY}}, $routine_arg_name );
+		return( '?' ); # DBI-style positional place-holders, and apparently SQL-2003 standard also.
+	} else {
+		# Insert named host parameter/placeholder.
+		return( ':'.$builder->quote_identifier( $routine_arg_name ) );
+		# This named style is in the SQL-1999 standard, apparently.  Oracle also uses it.
+		# TODO: Add support for @foo (inst of :foo) host param names that SQL-Server, etc uses.
+	}
 }
 
 sub build_identifier_schema_obj { # SQL-2003, 6.6 "<identifier chain>" (p183)
@@ -576,20 +594,11 @@ sub build_expr {
 			$expr_node->get_node_ref_attribute( 'view_arg' ) ) );
 	} elsif( $expr_type eq 'ARG' ) {
 		my $routine_arg_node = $expr_node->get_node_ref_attribute( 'routine_arg' );
-		if( $builder->{$PROP_MAKE_BVARS} ) {
-			# We are currently within an 'ANONYMOUS' routine, so arg is an app bind var.
-			if( $builder->{$PROP_POSIT_BVARS} ) {
-				# Insert positional bind variable/placeholder.
-				push( @{$builder->{$PROP_PBV_MAP_ARY}}, 
-					$routine_arg_node->get_literal_attribute( 'name' ) );
-				return( '?' ); # DBI-style positional place-holders.
-			} else {
-				# Insert named bind variable/placeholder.
-				return( ':'.$builder->build_identifier_element( $routine_arg_node ) );
-				# This named style is in the SQL-1999 standard, apparently.  Oracle also uses it.
-			}
+		if( $builder->{$PROP_MAKE_HPRMS} ) {
+			# We are currently within an application-side routine, so arg is an app host param.
+			return( $builder->build_identifier_host_parameter_name( $routine_arg_node ) );
 		} else {
-			# We are *not* within an 'ANONYMOUS' routine, so arg is a compiled routine var.
+			# We are *not* within an application-side routine, so arg is a compiled routine var.
 			return( $builder->build_identifier_element( $routine_arg_node ) );
 		}
 	} elsif( $expr_type eq 'VAR' ) {
@@ -989,7 +998,7 @@ sub build_expr_call_ufunc {
 		@{$expr_node->get_child_nodes()}; # gets child [view/routine]_expr Nodes
 	# Note: The build_expr() calls are done below to ensure the arg values are 
 	# defined in the same order they are output; this lets optional insertion 
-	# of positionally determined bind vars (and their mapping) to work right.
+	# of positionally determined host params (and their mapping) to work right.
 	my $arg_val_list = join( ', ', 
 		map { $ufunc_arg_exprs{$_} ? $builder->build_expr( $ufunc_arg_exprs{$_} ) : 'NULL' } 
 		@{$ufunc->get_child_nodes( 'routine_arg' )} );
@@ -1031,7 +1040,7 @@ sub build_query_from_clause {
 		# Complex case: There are 2 or more sources that are being joined.
 		# The first step is to determine the join order, and only afterwards are 
 		# each <table factor> rendered into SQL; each <table factor> must be 
-		# generated in appearance order, so positional bind var mapping works right.
+		# generated in appearance order, so positional host param mapping works right.
 		# Note: This code isn't very smart and assumes that all the view_join Nodes 
 		# are declared in the same order they should be output, even if their is 
 		# other evidence to the contrary.  This code can be smartened later.
@@ -1093,7 +1102,7 @@ sub build_query_table_factor { # SQL-2003, 7.6 "<table reference>" (p303)
 					@{$view_src_node->get_child_nodes( 'view_src_arg' )};
 				# Note: The build_expr() calls are done below to ensure the arg values are 
 				# defined in the same order they are output; this lets optional insertion 
-				# of positionally determined bind vars (and their mapping) to work right.
+				# of positionally determined host params (and their mapping) to work right.
 				my $arg_list = join( ', ', 
 					map { ($_ ? $builder->build_expr( $_ ) : 'NULL') } 
 					map { $src_args_to_view_exprs{$view_args_to_src_args{$_}} } 
@@ -1226,7 +1235,7 @@ sub build_query_select_list { # SQL-2003, 7.12 "<query specification>" (p341)
 			@{$view_node->get_child_nodes( 'view_expr' )};
 		# Note: The build_expr() calls are done below to ensure the arg values are 
 		# defined in the same order they are output; this lets optional insertion 
-		# of positionally determined bind vars (and their mapping) to work right.
+		# of positionally determined host params (and their mapping) to work right.
 		return( join( ', ',
 			map { ($_->get_node_ref_attribute( 'src_col' ) ? 
 					$builder->build_identifier_view_src_col( $_->get_node_ref_attribute( 'src_col' ) ) : 
@@ -1244,21 +1253,13 @@ sub build_query_select_list { # SQL-2003, 7.12 "<query specification>" (p341)
 sub build_query_into_clause { 
 	# SQL-2003, 14.3 "<fetch statement>" (p817)
 	# SQL-2003, 14.5 "<select statement: single row>" (p824)
-	# Function assumes that there is an 'INTO' view_expr Node for every 
-	# 'RESULT' view_expr Node, and that view.match_all_cols is false.
+	# Function assumes that view.match_all_cols is false.
 	my ($builder, $view_node) = @_;
-	my %col_nodes_to_into_nodes = 
-		map { ($_->get_node_ref_attribute( 'view_col' ) => $_) } 
-		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'INTO' } 
-		@{$view_node->get_child_nodes( 'view_expr' )};
-	my @target_list = ();
-	foreach my $view_col_node (@{$view_node->get_child_nodes( 'view_col' )}) {
-		my $into_expr_node = $col_nodes_to_into_nodes{$view_col_node};
-		push( @target_list, $builder->build_identifier_element( 
-		$into_expr_node->get_node_ref_attribute( 'routine_arg' ) || 
-		$into_expr_node->get_node_ref_attribute( 'routine_var' ) ) );
-	}
-	return( 'INTO '.join( ', ', @target_list ) );
+	return( 'INTO '.join( ', ',
+		map { $builder->build_identifier_element( 
+			$_->get_node_ref_attribute( 'set_routine_arg' ) || 
+			$_->get_node_ref_attribute( 'set_routine_var' ) ) } 
+		@{$view_node->get_child_nodes( 'view_col' )} ) );
 }
 
 ######################################################################
@@ -1336,7 +1337,7 @@ sub build_query_subquery { # SQL-2003, 7.15 "<subquery>" (p370)
 			@{$expr_node->get_child_nodes()}; # gets child view_expr Nodes
 		# Note: The build_expr() calls are done below to ensure the arg values are 
 		# defined in the same order they are output; this lets optional insertion 
-		# of positionally determined bind vars (and their mapping) to work right.
+		# of positionally determined host params (and their mapping) to work right.
 		my $arg_val_list = join( ', ', 
 			map { $cview_arg_exprs{$_} ? $builder->build_expr( $cview_arg_exprs{$_} ) : 'NULL' } 
 			@{$cview->get_child_nodes( 'view_arg' )} );
@@ -1417,6 +1418,7 @@ sub build_schema_table_create {
 	# SQL-2003, 11.7 "<unique constraint definition>" (p547)
 	# SQL-2003, 11.8 "<referential constraint definition>" (p549)
 	# TODO: SQL-2003, 11.9 "<check constraint definition>" (p569)
+	# TODO: "GENERATED ALWAYS AS ..." which looks like FileMaker's (etc) "calculation" field types.
 	my ($builder, $table_node, $is_temp) = @_;
 	my $table_name = $builder->build_identifier_schema_obj( $table_node, 1 );
 	my @table_col_sql = ();
@@ -1528,8 +1530,8 @@ sub build_schema_routine_create {
 		# Not implemented yet.
 	} elsif( $routine_type eq 'TRIGGER' ) {
 		my $table_or_view_name = $builder->build_identifier_schema_obj( 
-			$routine_node->get_node_ref_attribute( 'table' ) || 
-			$routine_node->get_node_ref_attribute( 'view' ) );
+			$routine_node->get_node_ref_attribute( 'trigger_on_table' ) || 
+			$routine_node->get_node_ref_attribute( 'trigger_on_view' ) );
 		my $trigger_event = $routine_node->get_enumerated_attribute( 'trigger_event' );
 		my $trigger_event_sql = $trigger_event eq 'BEFR_INS' ? 'BEFORE INSERT' : 
 			$trigger_event eq 'AFTR_INS' ? 'AFTER INSERT' : 
@@ -1572,9 +1574,8 @@ sub build_schema_routine_create {
 			' RETURNS '.$return_data_type.
 			($builder->{$PROP_ORA_ROUTINES} ? 'AS ' : '').
 			' '.$routine_body.';' );
-	} else {} # $routine_type eq 'BLOCK' or 'ANONYMOUS'
+	} else {} # $routine_type eq 'BLOCK'
 		# 'BLOCK': no-op; you should call build_dmanip_routine_body() directly instead
-		# 'ANONYMOUS': no-op; it isn't a schema object   
 }
 
 sub build_schema_routine_delete { 
@@ -1592,7 +1593,7 @@ sub build_schema_routine_delete {
 		return( 'DROP PROCEDURE '.$routine_name.';' );
 	} elsif( $routine_type eq 'FUNCTION' ) {
 		return( 'DROP FUNCTION '.$routine_name.';' );
-	} else {} # $routine_type eq 'BLOCK' or 'ANONYMOUS'; no-op
+	} else {} # $routine_type eq 'BLOCK'; no-op
 }
 
 ######################################################################
@@ -1909,11 +1910,11 @@ sub build_dmanip_call_uproc {
 	my $uproc = $rtn_stmt_node->get_enumerated_attribute( 'call_uproc' );
 	my $uproc_name = $builder->build_identifier_schema_obj( $uproc );
 	my %uproc_arg_exprs = 
-		map { ($_->get_node_ref_attribute( 'call_ufunc_arg' ) => $_) } # is called 'ufunc'
+		map { ($_->get_node_ref_attribute( 'call_uproc_arg' ) => $_) } 
 		@{$rtn_stmt_node->get_child_nodes()}; # gets child 'routine_expr' Nodes
 	# Note: The build_expr() calls are done below to ensure the arg values are 
 	# defined in the same order they are output; this lets optional insertion 
-	# of positionally determined bind vars (and their mapping) to work right.
+	# of positionally determined host params (and their mapping) to work right.
 	my $arg_val_list = join( ', ', 
 		map { $uproc_arg_exprs{$_} ? $builder->build_expr( $uproc_arg_exprs{$_} ) : 'NULL' } 
 		@{$uproc->get_child_nodes( 'routine_arg' )} );
@@ -1988,22 +1989,24 @@ prefer for use.
 Rosetta::Utility::SQLBuilder is designed to implement common functionality for
 multiple Rosetta Engine classes (such as Rosetta::Engine::Generic) allowing
 them to focus more on the non-SQL specific aspects of their work.  A Rosetta
-Engine would typically invoke this class within its prepare() method.  This
-class can also be used by code on the application-side of a Rosetta::Interface
-tree; for example, a module that emulates an older database interface which
-wants to return schema dumps as SQL strings ('create' statements usually) can
-use this module to generate those.  (For your reference, see also the
-Rosetta::Utility::SQLParser module, which implements the inverse functionality
-to SQLBuilder, and is used in both of the same places.)
+Engine would typically invoke this class within its prepare() implementation
+methods.  This class can also be used by code on the application-side of a
+Rosetta::Interface tree; for example, a module that emulates an older database
+interface which wants to return schema dumps as SQL strings ('create'
+statements usually) can use this module to generate those.  (For your
+reference, see also the Rosetta::Utility::SQLParser module, which implements
+the inverse functionality to SQLBuilder, and is used in both of the same
+places.)
 
 Rosetta::Utility::SQLBuilder has no dependence on any database link products or
 libraries.  You would, for example, use it in exactly the same way (probably)
 when generating SQL for an Oracle database regardless of whether the Engine is
 employing ODBC or SQL*Net as the pipe over which the SQL is sent.  That said,
 it does have specific support for the DBI module's standard way of indicating
-run-time SQL bind variables (using a '?' for each instance); since DBI's
-arguments are positional and SQL::SyntaxModel's are named, this class will also
-return a map for the SQL that says what order to give the named values to DBI.
+run-time SQL host parameters / bind variables (using a '?' for each instance);
+since DBI's arguments are positional and SQL::SyntaxModel's are named, this
+class will also return a map for the SQL that says what order to give the named
+values to DBI.
 
 I<CAVEAT: SIGNIFICANT PORTIONS OF THIS MODULE ARE NOT WRITTEN YET.>
 
@@ -2029,22 +2032,22 @@ This set of properties are generally set once at the start of a SQLBuilder
 object's life and aren't changed later, since they are generally static
 configuration data.
 
-=head2 positional_bind_vars([ NEW_VALUE ])
+=head2 positional_host_params([ NEW_VALUE ])
 
-	my $old_val = $builder->positional_bind_vars();
-	$builder->positional_bind_vars( 1 );
+	my $old_val = $builder->positional_host_params();
+	$builder->positional_host_params( 1 );
 
-This getter/setter method returns this object's "positional bind vars" boolean
+This getter/setter method returns this object's "positional host params" boolean
 property; if the optional NEW_VALUE argument is defined, this property is first
 set to that value.  If this property is false (the default), then any SQL this
-object makes will include bind variable declarations in named format; eg:
-":FOO" and ":BAR".  If this property is true, then bind variables are declared
+object makes will include host parameter declarations in named format; eg:
+":FOO" and ":BAR".  If this property is true, then host parameters are declared
 in positional format; they will all be "?" (as the DBI module specifies), and
-the SQL-making method will also return an array ref with maps bind variable
+the SQL-making method will also return an array ref with maps host parameter
 names to the positional "?" in the new SQL.  This property simply indicates the
-database engine's capability; it does not say "act now".  The "positional bind
-var map array" property can be set regardless of the engine's capability, but
-SQLBuilder code will only do something with it if "positional bind vars" is true.
+database engine's capability; it does not say "act now".  The "positional host
+param map array" property can be set regardless of the engine's capability, but
+SQLBuilder code will only do something with it if "positional host params" is true.
 
 =head2 delimited_identifiers([ NEW_VALUE ])
 
@@ -2252,38 +2255,38 @@ externally as usual, or some may also be set or changed by SQLBuilder code, and
 can be used effectively as extra output from the build* method; they maintain
 state for a build* invocation.
 
-=head2 make_bind_vars([ NEW_VALUE ])
+=head2 make_host_params([ NEW_VALUE ])
 
-	my $old_val = $builder->make_bind_vars();
-	$builder->make_bind_vars( 1 );
+	my $old_val = $builder->make_host_params();
+	$builder->make_host_params( 1 );
 
-This getter/setter method returns this object's "make bind vars" boolean
+This getter/setter method returns this object's "make host params" boolean
 property; if the optional NEW_VALUE argument is defined, this property is first
 set to that value.  This property helps manage the fact that routine_arg SSM
 Nodes can have dual purposes when being converted to SQL.  With an ordinary
 stored routine, they turn into normal argument declarations and are used by SQL
-routine code by name as usual.  With an ANONYMOUS routine, or BLOCKs inside
-those, they instead represent application bind variables, which are formatted
+routine code by name as usual.  With an application-side routine, or BLOCKs inside
+those, they instead represent application host parameters, which are formatted
 differently when put in SQL.  This property stores the current state as to
-whether any referenced routine_arg should be turned into bind vars or not. 
+whether any referenced routine_arg should be turned into host params or not. 
 This property should be set false (the default) when we are in an ordinary
-routine, and it should be set true when we are in an ANONYMOUS routine.
+routine, and it should be set true when we are in an application-side routine.
 
-=head2 get_positional_bind_var_map_array()
+=head2 get_positional_host_param_map_array()
 
 This "getter" method returns a new array ref having a copy of this object's
-"positional bind var map array" array property.  This property is explicitely
-emptied by external code, by invoking the clear_positional_bind_var_map_array()
+"positional host param map array" array property.  This property is explicitely
+emptied by external code, by invoking the clear_positional_host_param_map_array()
 method, prior to that code requesting that we build SQL which contains
-positional bind variables.  When we build said SQL, each time we are to insert
-a bind variable, we simply put a "?" in the SQL, and we add to this array the
+positional host parameters.  When we build said SQL, each time we are to insert
+a host parameter, we simply put a "?" in the SQL, and we add to this array the
 name of the routine_arg whose value is supposed to substitute at exec time. As
 soon as said SQL is made and returned, external code reads this array's values
-using the get_positional_bind_var_map_array() method.
+using the get_positional_host_param_map_array() method.
 
-=head2 clear_positional_bind_var_map_array()
+=head2 clear_positional_host_param_map_array()
 
-This "setter" method empties this object's "positional bind var map array"
+This "setter" method empties this object's "positional host param map array"
 array property.  See the previous method's documentation for when to use it.
 
 =head2 unwrap_views([ NEW_VALUE ])
@@ -2393,6 +2396,19 @@ internally, build_identifier_*() method; for example, it is used for table/view
 column names in table/view definitions, and for all declaration or use of
 routine variables, or for routine/view arguments.  Note that SQL::SyntaxModel
 will throw an exception if the Node argument is of the wrong type.
+
+=head2 build_identifier_host_parameter_name( ROUTINE_ARG_NODE )
+
+	my $sql = $builder->build_identifier_host_parameter_name( $routine_arg_node );
+
+This method takes a routine_arg SSM Node and generates either a named or
+positional SQL identifier (depending on this object's "positional host params"
+property) based on the "name" of the routine_arg.  This function is used for
+application-side or application-invoked SSM routines.  Named host params look
+according to the SQL-2003 standard, like ":foo", and positional host params
+follow the DBI-style '?' (and also SQL-2003 standard, apparently).  When making
+a positional parameter, this method adds an element to the 'map array'
+property, so it can be externally mapped to a named value later.
 
 =head2 build_identifier_schema_obj( OBJECT_NODE[, FOR_DEFN] )
 

@@ -3,11 +3,9 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
 	NAME	=> 'Rosetta::Extensions',
-	VERSION => 0.07, # for the distribution itself, not of individual modules
+	VERSION => 0.08, # for the distribution itself, not of individual modules
 	PREREQ_PM => {
-		'Locale::KeyedText' => 0.06,
-		'SQL::SyntaxModel' => 0.38,
-		'Rosetta' => 0.33,
+		'Rosetta' => 0.35,
 		'DBI' => 1.42,
 	},
 );
