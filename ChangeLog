@@ -1,3 +1,77 @@
+2005-03-18   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.15.
+
+	* New code file versions are: Generic.pm v0.12, SQLBuilder.pm v0.15, en.pm
+	v0.08.
+
+	* Updated external dependencies on Rosetta to v0.41 and on DBI to v1.48.
+
+	* Added new external dependency on DBD::SQLite v1.08 (SQLite v3.1.3) to the
+	distribution Makefile, though not to the core modules themselves or the test
+	suite.  The test suite will use SQLite by default when testing this
+	distribution if you don't specify an alternate database engine to use; that
+	way, the non-interactive automated tests of CPAN should not fail.  Rewrote 
+	the introduction message in the Makefile.PL, and updated the ReadMe.
+
+	* Corrected a few spelling mistakes in the documentation.
+
+	* In order to help ease the transition to Perl 6, updated en.pm to make all
+	user text message strings bound in non-interpolating single quotes rather
+	than interpolating double-quotes.  The reason is because these text strings
+	frequently use literal braces ({}) and Perl 6 would have incorrectly
+	interpreted those as containing embedded Perl code to execute and
+	interpolate the result value of.
+
+	* Following a style suggestion given to me by Larry Wall on p6l, updated
+	every occurance of a "return" statement in the distribution to remove the
+	parenthesis around its value list, since it is a an operator rather than a
+	function; this also makes my code more consistent since I never used parens
+	for the likes of "sort" or "keys" or "next" or "last".  Also updated every
+	"return" to not explicitly return undefs (that's what "return" does by
+	default), and also to not return a generic truth value ("1") when any caller
+	would ignore it.
+
+	* A few SQLBuilder.pm updates: 1. Updated build_schema_view_create() to 
+	implement 'TEMPORARY'.  2. Updated build_expr_scalar_data_type_defn() for 
+	a minor bug fix re Node type names.
+
+	* Rewrote half of Rosetta_Extensions.t so that it is a lot more graceful in
+	error conditions, and now uses a SQLite database by default.  The test count
+	is up 1 to 6, with the new reported test simply saying whether the actual
+	test suite executed or threw an exception.  Automated testers should no
+	longer have any problems.  
+
+	* Minor update to t_setup.pl to comment out more lines, as a workaround for
+	Rosetta_Extensions.t apparently not being able to handle something in it;
+	this will be fixed later.
+
+	* Updated any DEPENDENCIES documentation to use sub-headings "[|Non-] Core
+	Modules" rather than "[|Non]standard Modules".
+
+	* Added a section in the TODO file about an imminent branch from this
+	distribution of a version written in Perl 6, initially useable with Pugs.
+
+	* NOTICE: Following this release v0.15, the Rosetta-Extensions distro will
+	likely be split into two distros, and each of those will start at v0.16.
+
+	For historical posterity, this is the file manifest prior to the split:
+
+		ChangeLog
+		INSTALL
+		lib/Rosetta/Engine/Generic.pm
+		lib/Rosetta/Engine/Generic/L/en.pm
+		lib/Rosetta/Extensions.pod
+		lib/Rosetta/Utility/SQLBuilder.pm
+		LICENSE
+		Makefile.PL
+		MANIFEST
+		META.yml                                 Module meta-data (added by MakeMaker)
+		ReadMe
+		t/Rosetta_Extensions.t
+		t_setup.pl
+		TODO
+
 2004-12-18   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.14.

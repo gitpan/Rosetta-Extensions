@@ -24,6 +24,17 @@ INSTALL should help with installation issues.  Read below for how to get support
 or keep up to date, know this distribution's dependencies, or read the credits
 or copyright and license.
 
+This distribution requires a live database to be tested against.  To gain the
+best understanding of whether Rosetta::Extensions will work with your preferred
+database engine and/or working environment, you should edit this distribution's
+test configuration file "t_setup.pl" prior to running 'make test' and/or 'perl
+Makefile.PL'.  The setup details that you input should match a visible database
+engine that you have full privileges on, including the ability to create schema
+objects, and select or modify data.  If you do not edit "t_setup.pl", such as
+when you are a fully-automatic CPAN tester, then the test suite will use the
+newest SQLite v3 database engine by default, and the executed tests will only be
+as thorough as the SQLite v3 feature set supports.
+
 KEEPING UP TO DATE
 
 My module set is constantly under development.  You should be able to find the
@@ -41,12 +52,13 @@ DEPENDENCIES
 
 Perl Version: 5.008001
 
-Standard Modules: none
+Core Modules: none
 
-Nonstandard Modules: 
+Non-Core Modules: 
 
-	Rosetta 0.40
-	DBI 1.46
+	Rosetta 0.41
+	DBI 1.48
+	DBD::SQLite 1.08 (default database engine used by the test suite)
 	various DBI Driver (DBD) modules
 
 SUPPORT
@@ -65,7 +77,7 @@ COPYRIGHT AND LICENSE
 This file is part of the Rosetta::Extensions collection of Rosetta feature
 reference implementations.
 
-Rosetta::Extensions is Copyright (c) 1999-2004, Darren R. Duncan.  All rights
+Rosetta::Extensions is Copyright (c) 1999-2005, Darren R. Duncan.  All rights
 reserved.  Address comments, suggestions, and bug reports to
 B<perl@DarrenDuncan.net>, or visit "http://www.DarrenDuncan.net" for more
 information.

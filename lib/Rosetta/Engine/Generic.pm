@@ -3,11 +3,11 @@
 use 5.008001; use utf8; use strict; use warnings;
 
 package Rosetta::Engine::Generic;
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
-use Rosetta '0.40';
-use DBI '1.46';
-use Rosetta::Utility::SQLBuilder '0.14';
+use Rosetta '0.41';
+use DBI '1.48';
+use Rosetta::Utility::SQLBuilder '0.15';
 
 use base qw( Rosetta::Engine );
 
@@ -23,20 +23,20 @@ Rosetta::Engine::Generic - A catch-all Engine for any DBI-supported SQL database
 
 Perl Version: 5.008001
 
-Standard Modules: I<none>
+Core Modules: I<none>
 
-Nonstandard Modules: 
+Non-Core Modules: 
 
-	Rosetta 0.40
-	DBI 1.46 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.14
+	Rosetta 0.41
+	DBI 1.48 (highest version recommended)
+	Rosetta::Utility::SQLBuilder 0.15
 
 =head1 COPYRIGHT AND LICENSE
 
 This file is part of the Rosetta::Extensions collection of Rosetta feature
 reference implementations.
 
-Rosetta::Extensions is Copyright (c) 1999-2004, Darren R. Duncan.  All rights
+Rosetta::Extensions is Copyright (c) 1999-2005, Darren R. Duncan.  All rights
 reserved.  Address comments, suggestions, and bug reports to
 B<perl@DarrenDuncan.net>, or visit "http://www.DarrenDuncan.net" for more
 information.
@@ -220,7 +220,7 @@ sub new {
 	$engine->{$PROP_LIT_PREP_STH_OBJ} = undef;
 	$engine->{$PROP_LIT_PAYLOAD} = undef;
 	$engine->{$PROP_CURS_PREP_STH_OBJ} = undef;
-	return( $engine );
+	return $engine;
 }
 
 ######################################################################
@@ -263,7 +263,7 @@ sub features {
 			# Now query the db to know whether TRAN_ROLLBACK_ON_DEATH is supported or not.
 		} else {} # Conn is in closed state; less info available.
 	} else {} # Intf Type is Environment.
-	return( defined($feature_name) ? $feature_list{$feature_name} : \%feature_list );
+	return defined($feature_name) ? $feature_list{$feature_name} : \%feature_list;
 }
 
 ######################################################################
@@ -285,21 +285,21 @@ sub prepare {
 
 	$engine->{$PROP_IN_PROGRESS_PREP_ENG} = $prep_eng;
 	my $routine = eval {
-		return( $engine->build_perl_routine( $interface, $routine_node ) );
+		return $engine->build_perl_routine( $interface, $routine_node );
 	};
 	$engine->{$PROP_IN_PROGRESS_PREP_ENG} = undef; # must be empty before we exit
 	$@ and die $@;
 
 	my $prep_intf = $interface->new( $Rosetta::INTFTP_PREPARATION, undef, 
 		$interface, $prep_eng, $routine_node, $routine );
-	return( $prep_intf );
+	return $prep_intf;
 }
 
 ######################################################################
 
 sub payload {
 	my ($lit_eng, $lit_intf) = @_;
-	return( $lit_eng->{$PROP_LIT_PAYLOAD} );
+	return $lit_eng->{$PROP_LIT_PAYLOAD};
 }
 
 ######################################################################
@@ -307,7 +307,7 @@ sub payload {
 sub routine_source_code {
 	my ($env_eng, $env_intf, $routine_node) = @_;
 	my $routine_name = $env_eng->build_perl_identifier_rtn( $routine_node );
-	return( $env_eng->{$PROP_ENV_PERL_RTN_STRS}->{$routine_name} ); # undef if none
+	return $env_eng->{$PROP_ENV_PERL_RTN_STRS}->{$routine_name}; # undef if none
 }
 
 ######################################################################
@@ -320,7 +320,7 @@ sub build_perl_routine {
 	my $routine_name_debug = $engine->build_perl_identifier_rtn( $routine_node, 1 );
 
 	if( my $routine = $env_eng->{$PROP_ENV_PERL_RTNS}->{$routine_name} ) {
-		return( $routine ); # This routine was compiled previously; use that one.
+		return $routine; # This routine was compiled previously; use that one.
 	}
 
 	my $routine_type = $routine_node->get_enumerated_attribute( 'routine_type' );
@@ -331,7 +331,7 @@ sub build_perl_routine {
 	}
 
 	my $routine_str = <<__EOL; # This routine is a closure.
-return( sub {
+return sub {
 	# routine: "$routine_name_debug".
 	my (\$rtv_prep_eng, \$rtv_prep_intf, \$rtv_args) = \@_;
 __EOL
@@ -374,12 +374,12 @@ __EOL
 	if( $routine_type eq 'PROCEDURE' ) {
 		# All procedures conceptually return nothing, actually return SUCCESS when ok.
 		$routine_str .= <<__EOL;
-	return( \$rtv_prep_intf->new( \$Rosetta::INTFTP_SUCCESS ) );
+	return \$rtv_prep_intf->new( \$Rosetta::INTFTP_SUCCESS );
 __EOL
 	}
 
-	$routine_str .= <<__EOL;
-} );
+	$routine_str .= <<__EOL; # return
+};
 __EOL
 
 	if( my $trace_fh = $interface->get_trace_fh() ) {
@@ -395,7 +395,7 @@ __EOL
 
 	$env_eng->{$PROP_ENV_PERL_RTNS}->{$routine_name} = $routine;
 	$env_eng->{$PROP_ENV_PERL_RTN_STRS}->{$routine_name} = $routine_str;
-	return( $routine ); # This routine is now compiled for the first time.
+	return $routine; # This routine is now compiled for the first time.
 }
 
 ######################################################################
@@ -434,7 +434,7 @@ __EOL
 		$routine_str .= $engine->build_perl_stmt( $interface, $routine_node, $routine_stmt_node );
 	}
 
-	return( $routine_str );
+	return $routine_str;
 }
 
 ######################################################################
@@ -448,13 +448,13 @@ sub build_perl_stmt {
 		my $assign_dest_name = $engine->build_perl_identifier_rtn_var( $assign_dest_node );
 		my $expr_str = $engine->build_perl_expr( $interface, $routine_node, 
 			$routine_stmt_node->get_child_nodes( 'routine_expr' )->[0] );
-		return( <<__EOL );
+		return <<__EOL;
 	$assign_dest_name = $expr_str;
 __EOL
 	} elsif( $routine_stmt_node->get_enumerated_attribute( 'call_sroutine' ) ) {
-		return( $engine->build_perl_stmt_srtn( $interface, $routine_node, $routine_stmt_node ) );
+		return $engine->build_perl_stmt_srtn( $interface, $routine_node, $routine_stmt_node );
 	} elsif( $routine_stmt_node->get_node_ref_attribute( 'call_uroutine' ) ) {
-		return( $engine->build_perl_stmt_urtn( $interface, $routine_node, $routine_stmt_node ) );
+		return $engine->build_perl_stmt_urtn( $interface, $routine_node, $routine_stmt_node );
 	} else {}
 }
 
@@ -475,19 +475,19 @@ sub build_perl_stmt_srtn {
 		my $conn_cx = $engine->build_perl_expr( $interface, $routine_node, $child_cxt_exprs{'CONN_CX'} );
 		my $login_name = $engine->build_perl_expr( $interface, $routine_node, $child_arg_exprs{'LOGIN_NAME'} );
 		my $login_pass = $engine->build_perl_expr( $interface, $routine_node, $child_arg_exprs{'LOGIN_PASS'} );
-		return( <<__EOL );
+		return <<__EOL;
 	\$rtv_prep_eng->srtn_catalog_open( \$rtv_prep_intf, { 'CONN_CX' => $conn_cx, 
 		'LOGIN_NAME' => $login_name, 'LOGIN_PASS' => $login_pass } );
 __EOL
 	} elsif( $sroutine eq 'CATALOG_CLOSE' ) {
 		my $conn_cx = $engine->build_perl_expr( $interface, $routine_node, $child_cxt_exprs{'CONN_CX'} );
-		return( <<__EOL );
+		return <<__EOL;
 	\$rtv_prep_eng->srtn_catalog_close( \$rtv_prep_intf, { 'CONN_CX' => $conn_cx } );
 __EOL
 	} elsif( $sroutine eq 'RETURN' ) {
 		my $return_value = $engine->build_perl_expr( $interface, $routine_node, $child_arg_exprs{'RETURN_VALUE'} );
-		return( <<__EOL );
-	return( $return_value );
+		return <<__EOL;
+	return $return_value;
 __EOL
 	} else {}
 	$engine->_throw_error_message( 'ROS_G_STD_RTN_NO_IMPL', 
@@ -498,7 +498,7 @@ __EOL
 
 sub build_perl_stmt_urtn {
 	my ($engine, $interface, $routine_node, $routine_stmt_node) = @_;
-	return( '' );
+	return '';
 }
 
 ######################################################################
@@ -506,22 +506,22 @@ sub build_perl_stmt_urtn {
 sub build_perl_expr {
 	my ($engine, $interface, $routine_node, $expr_node) = @_;
 	unless( $expr_node ) {
-		return( 'undef' );
+		return 'undef';
 	}
 	my $cont_type = $expr_node->get_enumerated_attribute( 'cont_type' );
 	if( $cont_type eq 'LIST' ) {
-		return( '('.join( ', ', map { $engine->build_perl_expr( $interface, $routine_node, $_ ) } 
-			@{$expr_node->get_child_nodes()} ).')' );
+		return '('.join( ', ', map { $engine->build_perl_expr( $interface, $routine_node, $_ ) } 
+			@{$expr_node->get_child_nodes()} ).')';
 	} else {
 		if( my $valf_literal = $expr_node->get_literal_attribute( 'valf_literal' ) ) {
 			#my $domain_node = $expr_node->get_node_ref_attribute( 'scalar_data_type' );
-			return( $engine->build_perl_literal_cstr( $valf_literal ) );
+			return $engine->build_perl_literal_cstr( $valf_literal );
 		} elsif( my $routine_item_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_item' ) ) {
-			return( $engine->build_perl_identifier_rtn_var( $routine_item_node ) );
+			return $engine->build_perl_identifier_rtn_var( $routine_item_node );
 		} elsif( $expr_node->get_enumerated_attribute( 'valf_call_sroutine' ) ) {
-			return( $engine->build_perl_expr_srtn( $interface, $routine_node, $expr_node ) );
+			return $engine->build_perl_expr_srtn( $interface, $routine_node, $expr_node );
 		} elsif( $expr_node->get_node_ref_attribute( 'valf_call_uroutine' ) ) {
-			return( $engine->build_perl_expr_urtn( $interface, $routine_node, $expr_node ) );
+			return $engine->build_perl_expr_urtn( $interface, $routine_node, $expr_node );
 		} else {}
 	}
 }
@@ -541,7 +541,7 @@ sub build_perl_expr_srtn {
 		@{$routine_expr_node->get_child_nodes()};
 	if( $sroutine eq 'CATALOG_LIST' ) {
 		my $recursive = $engine->build_perl_expr( $interface, $routine_node, $child_arg_exprs{'RECURSIVE'} );
-		return( "\$rtv_prep_eng->srtn_catalog_list( \$rtv_prep_intf, { 'RECURSIVE' => $recursive } )" );
+		return "\$rtv_prep_eng->srtn_catalog_list( \$rtv_prep_intf, { 'RECURSIVE' => $recursive } )";
 	} else {}
 	$engine->_throw_error_message( 'ROS_G_STD_RTN_NO_IMPL', 
 		{ 'RNAME' => $routine_node, 'SRNAME' => $sroutine } );
@@ -551,7 +551,7 @@ sub build_perl_expr_srtn {
 
 sub build_perl_expr_urtn {
 	my ($engine, $interface, $routine_node, $routine_stmt_node) = @_;
-	return( '' );
+	return '';
 }
 
 ######################################################################
@@ -562,21 +562,21 @@ sub get_env_cx_e_and_i {
 	if( $intf_type eq $Rosetta::INTFTP_PREPARATION ) {
 		my $p_intf = $interface->get_parent_interface();
 		my $p_eng = $p_intf->get_engine();
-		return( $p_eng->get_env_cx_e_and_i( $p_intf ) );
+		return $p_eng->get_env_cx_e_and_i( $p_intf );
 	}
 	if( $intf_type eq $Rosetta::INTFTP_ENVIRONMENT ) {
-		return( $engine, $interface );
+		return $engine, $interface;
 	}
 	if( $intf_type eq $Rosetta::INTFTP_CONNECTION ) {
 		my $env_intf = $interface->get_parent_interface()->get_parent_interface();
 		my $env_eng = $env_intf->get_engine();
-		return( $env_eng, $env_intf );
+		return $env_eng, $env_intf;
 	}
 	if( $intf_type eq $Rosetta::INTFTP_CURSOR ) {
 		my $conn_intf = $interface->get_parent_interface()->get_parent_interface();
 		my $env_intf = $conn_intf->get_parent_interface()->get_parent_interface();
 		my $env_eng = $env_intf->get_engine();
-		return( $env_eng, $env_intf );
+		return $env_eng, $env_intf;
 	}
 	# We should never get here.
 }
@@ -587,17 +587,17 @@ sub get_conn_cx_e_and_i {
 	if( $intf_type eq $Rosetta::INTFTP_PREPARATION ) {
 		my $p_intf = $interface->get_parent_interface();
 		my $p_eng = $p_intf->get_engine();
-		return( $p_eng->get_conn_cx_e_and_i( $p_intf ) );
+		return $p_eng->get_conn_cx_e_and_i( $p_intf );
 	}
 	if( $intf_type eq $Rosetta::INTFTP_CONNECTION ) {
-		return( $engine, $interface );
+		return $engine, $interface;
 	}
 	if( $intf_type eq $Rosetta::INTFTP_CURSOR ) {
 		my $conn_intf = $interface->get_parent_interface()->get_parent_interface();
 		my $conn_eng = $conn_intf->get_engine();
-		return( $conn_eng, $conn_intf );
+		return $conn_eng, $conn_intf;
 	}
-	return( undef, undef ); # $intf_type eq $INTFTP_ENVIRONMENT
+	return; # $intf_type eq $INTFTP_ENVIRONMENT
 }
 
 sub get_curs_cx_e_and_i {
@@ -606,12 +606,12 @@ sub get_curs_cx_e_and_i {
 	if( $intf_type eq $Rosetta::INTFTP_PREPARATION ) {
 		my $p_intf = $interface->get_parent_interface();
 		my $p_eng = $p_intf->get_engine();
-		return( $p_eng->get_curs_cx_e_and_i( $p_intf ) );
+		return $p_eng->get_curs_cx_e_and_i( $p_intf );
 	}
 	if( $intf_type eq $Rosetta::INTFTP_CURSOR ) {
-		return( $engine, $interface );
+		return $engine, $interface;
 	}
-	return( undef, undef ); # $intf_type eq $INTFTP_ENVIRONMENT or $intf_type eq $INTFTP_CONNECTION
+	return; # $intf_type eq $INTFTP_ENVIRONMENT or $intf_type eq $INTFTP_CONNECTION
 }
 
 ######################################################################
@@ -625,15 +625,15 @@ sub encode_perl_identifier {
 	my ($engine, $name, $debug) = @_;
 	if( $debug ) {
 		$name =~ s|[^a-zA-Z0-9]|*|g;
-		return( $name );
+		return $name;
 	} else {
-		return( join( '', map { unpack( 'H2', $_ ) } split( '', $name ) ) );
+		return join( '', map { unpack( 'H2', $_ ) } split( '', $name ) );
 	}
 }
 
 sub build_perl_identifier_element {
 	my ($engine, $object_node, $debug) = @_;
-	return( $engine->encode_perl_identifier( $object_node->get_literal_attribute( 'si_name' ), $debug ) );
+	return $engine->encode_perl_identifier( $object_node->get_literal_attribute( 'si_name' ), $debug );
 }
 
 sub build_perl_identifier_rtn {
@@ -645,19 +645,19 @@ sub build_perl_identifier_rtn {
 		my $schema_name = $engine->build_perl_identifier_element( $routine_pp_node, $debug );
 		my $cat_node = $routine_pp_node->get_primary_parent_attribute();
 		my $cat_name = $engine->build_perl_identifier_element( $cat_node, $debug );
-		return( 'cat_'.$cat_name.'_'.$schema_name.'_'.$routine_name )
+		return 'cat_'.$cat_name.'_'.$schema_name.'_'.$routine_name
 	}
 	if( $routine_pp_node_type eq 'application' ) {
 		my $app_name = $engine->build_perl_identifier_element( $routine_pp_node, $debug );
-		return( 'app_'.$app_name.'_'.$routine_name )
+		return 'app_'.$app_name.'_'.$routine_name
 	}
 	# $routine_pp_node_type eq 'routine'
-	return( $engine->build_perl_identifier_rtn( $routine_pp_node, $debug ).'_'.$routine_name )
+	return $engine->build_perl_identifier_rtn( $routine_pp_node, $debug ).'_'.$routine_name
 }
 
 sub build_perl_identifier_rtn_var {
 	my ($engine, $routine_var_node, $debug) = @_;
-	return( "\$rtv_enc_".$engine->build_perl_identifier_element( $routine_var_node, $debug ) );
+	return "\$rtv_enc_".$engine->build_perl_identifier_element( $routine_var_node, $debug );
 }
 
 ######################################################################
@@ -667,16 +667,16 @@ sub encode_perl_literal_cstr {
 	if( defined( $literal ) ) {
 		$literal =~ s|\\|\\\\|g;
 		$literal =~ s|'|\'|g;
-		return( "'".$literal."'" );
+		return "'".$literal."'";
 	} else {
-		return( "undef" );
+		return "undef";
 	}
 }
 
 sub build_perl_literal_cstr_from_atvl {
 	my ($engine, $object_node, $attr_name) = @_;
 	$attr_name ||= 'si_name';
-	return( $engine->encode_perl_literal_cstr( $object_node->get_literal_attribute( $attr_name ) ) );
+	return $engine->encode_perl_literal_cstr( $object_node->get_literal_attribute( $attr_name ) );
 }
 
 ######################################################################
@@ -689,7 +689,7 @@ sub open_dbi_connection {
 		$login_pass,
 		{ RaiseError => 1, AutoCommit => $auto_commit },
 	); # throws exception on failure
-	return( $dbi_dbh );
+	return $dbi_dbh;
 }
 
 sub close_dbi_connection {
@@ -715,7 +715,7 @@ sub clean_up_dbi_driver_string {
 	$driver_name =~ m|^DBD::(.*)$|; $1 and $driver_name = $1;
 	# This line extracts the 'driver' from any other bounding characters.
 	$driver_name =~ s|([a-zA-Z0-9_]*)|$1|;
-	return( $driver_name );
+	return $driver_name;
 }
 
 ######################################################################
@@ -738,7 +738,7 @@ sub install_dbi_driver {
 	};
 	unless( $@ ) {
 		# No errors, so the DBI driver exists and is now installed.
-		return( $driver_hint );
+		return $driver_hint;
 	}
 	my $semi_original_driver_hint = $driver_hint; # save for error strings if any
 
@@ -749,11 +749,11 @@ sub install_dbi_driver {
 	# If the given hint matches a driver name except for the capitalization, then these simple  
 	# tries should work for about 75% of the DBI drivers that I know about.
 	$driver_hint = uc( $driver_hint );
-	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return( $driver_hint ); }
+	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return $driver_hint; }
 	$driver_hint = lc( $driver_hint );
-	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return( $driver_hint ); }
+	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return $driver_hint; }
 	$driver_hint = ucfirst( lc( $driver_hint ) );
-	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return( $driver_hint ); }
+	eval { DBI->install_driver( $driver_hint ); }; unless( $@ ) { return $driver_hint; }
 
 	# Now ask DBI for a list of installed drivers, and compare each to the driver hint, 
 	# including some sub-string match attempts.
@@ -771,7 +771,7 @@ sub install_dbi_driver {
 	}
 	if( $matched_driver_name ) {
 		eval { DBI->install_driver( $matched_driver_name ); }; 
-		unless( $@ ) { return( $matched_driver_name ); }
+		unless( $@ ) { return $matched_driver_name; }
 	}
 
 	# If we get here then all attempts have failed, so give up.
@@ -786,7 +786,7 @@ sub make_srt_node {
 	my $node = $container->new_node( $node_type );
 	$node->set_node_id( $container->get_next_free_node_id() );
 	$node->put_in_container( $container );
-	return( $node );
+	return $node;
 }
 
 sub make_child_srt_node {
@@ -796,7 +796,7 @@ sub make_child_srt_node {
 	$node->set_node_id( $container->get_next_free_node_id() );
 	$node->put_in_container( $container );
 	$node->set_primary_parent_attribute( $pp_node );
-	return( $node );
+	return $node;
 }
 
 ######################################################################
@@ -852,7 +852,7 @@ sub build_perl_declare_cx_conn {
 
 	$prep_eng->{$PROP_CONN_PREP_ECO} = \%conn_prep_eco;
 
-	return( <<__EOL );
+	return <<__EOL;
 	my $rtn_var_nm_eng = \$rtv_prep_eng->new();
 	$rtn_var_nm = \$rtv_prep_intf->new( \$Rosetta::INTFTP_CONNECTION, undef, 
 		\$rtv_prep_intf, $rtn_var_nm_eng );
@@ -944,7 +944,7 @@ sub srtn_catalog_list {
 
 	my $lit_intf = $prep_intf->new( $Rosetta::INTFTP_LITERAL, undef, 
 		$prep_intf, $lit_eng );
-	return( $lit_intf );
+	return $lit_intf;
 }
 
 ######################################################################
@@ -1178,7 +1178,7 @@ the chosen "data link product", which in Rosetta terms is an Engine.  At the
 moment, all Engine Configuration Options are conceptually passed in at "catalog
 link realization time", which is usually when or before a Connection Interface
 is about to be made (by a prepare(CATALOG_OPEN)/execute() combination), or it
-can be when or before an analagous operation (such as a CATALOG_INFO).  When a
+can be when or before an analogous operation (such as a CATALOG_INFO).  When a
 catalog link is realized, a short chain of related SRT Nodes is consulted for
 their attributes or associated child *_opt Nodes, one each of:
 catalog_link_instance, catalog_instance, data_link_product,

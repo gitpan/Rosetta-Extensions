@@ -3,23 +3,25 @@
 use 5.008001; use utf8; use strict; use warnings;
 
 BEGIN { $| = 1; }
-use Rosetta::Validator '0.40';
+use Rosetta::Validator '0.41';
 BEGIN {
 	my $total_possible = Rosetta::Validator->total_possible_tests();
+	$total_possible += 1; # extra nums for our own non-Validator tests
 	print "1..$total_possible\n";
 }
 
 ######################################################################
 # First ensure the modules to test will compile, are correct versions:
 
-use Rosetta::Engine::Generic '0.11';
-use Rosetta::Engine::Generic::L::en '0.07';
-use Rosetta::Utility::SQLBuilder '0.14';
+use Rosetta::Engine::Generic '0.12';
+use Rosetta::Engine::Generic::L::en '0.08';
+use Rosetta::Utility::SQLBuilder '0.15';
 
 ######################################################################
 # Here are some utility methods:
 
 my $test_num = 0;
+$test_num ++; # test 1 is that SQL::Validator->main() doesn't die
 
 sub print_result {
 	my ($result) = @_;
@@ -46,71 +48,88 @@ sub object_to_string {
 			'Rosetta::Validator::L::', 'Rosetta::L::', 'SQL::Routine::L::'], ['en'] );
 		my $user_text = $translator->translate_message( $message );
 		unless( $user_text ) {
-			return( "internal error: can't find user text for a message: ".
-				$message->as_string()." ".$translator->as_string() );
+			return "internal error: can't find user text for a message: ".
+				$message->as_string()." ".$translator->as_string();
 		}
-		return( $user_text );
+		return $user_text;
 	}
-	return( $message ); # if this isn't the right kind of object
+	return $message; # if this isn't the right kind of object
 }
 
 sub import_setup_options {
 	my ($setup_filepath) = @_;
+	my $err_str = "can't obtain test setup specs from Perl file '".$setup_filepath."'; ";
 	my $setup_options = do $setup_filepath;
 	unless( ref($setup_options) eq 'HASH' ) {
-		my $err_str = "can't obtain test setup specs from Perl file '".$setup_filepath."'; ";
 		if( defined( $setup_options ) ) {
 			$err_str .= "result is not a hash ref, but '$setup_options'";
 		} elsif( $@ ) {
 			$err_str .= "compilation or runtime error of '$@'";
 		} else {
-			$err_str .= "file system error of '$!.'";
+			$err_str .= "file system error of '$!'";
 		}
 		die "$err_str\n";
 	}
-	return( $setup_options );
-}
-
-######################################################################
-# Now perform the actual tests:
-
-eval {
-	my $setup_filepath = shift( @ARGV ) || 't_setup.pl'; # set from first command line arg; '0' means use default name
-	my $trace_to_stdout = shift( @ARGV ) ? 1 : 0; # set from second command line arg
-
-	warn <<__endquote;
-------------------------------------------------------------
-This distribution requires a live database to be tested against.  Please edit
-the configuration file "t_setup.pl" that comes with this distribution prior to
-running 'make test' (it could also be done prior to running 'perl
-Makefile.PL').  The setup details that you input should match a visible
-database engine that you have full privileges on, including the ability to
-create schema objects, and select or modify data.
-------------------------------------------------------------
-__endquote
-
-	my $setup_options = import_setup_options( $setup_filepath );
-	my $trace_fh = $trace_to_stdout ? \*STDOUT : undef;
-
+	unless( scalar( keys %{$setup_options} ) ) {
+		die $err_str."result is a hash ref that contains no elements\n";
+	}
 	eval {
 		Rosetta->validate_connection_setup_options( $setup_options ); # dies on problem
 	};
 	if( my $exception = $@ ) {
 		unless( $exception->get_message_key() eq 'ROS_I_V_CONN_SETUP_OPTS_NO_ENG_NM' ) {
-			die $exception; # don't trap any other types of exceptions
+			die $err_str."result is a hash ref having invalid elements; ".
+				object_to_string( $exception )."\n";
 		}
 	}
 	$setup_options->{'data_link_product'} ||= {};
 	# Shouldn't be an Engine set already, but if there is, we override it.
 	$setup_options->{'data_link_product'}->{'product_code'} = 'Rosetta::Engine::Generic';
+	return $setup_options;
+}
 
-	my $test_results = Rosetta::Validator->main( $setup_options, $trace_fh );
+######################################################################
+# Now perform the actual tests:
 
+my $setup_filepath = shift( @ARGV ) || 't_setup.pl'; # set from first command line arg; '0' means use default name
+my $trace_to_stdout = shift( @ARGV ) ? 1 : 0; # set from second command line arg
+
+my $setup_options = eval {
+	return import_setup_options( $setup_filepath );
+};
+if( my $exception = $@ ) {
+	warn "-- NOTICE: could not load any test setup options from file '$setup_filepath': $exception";
+	warn "-- NOTICE: defaulting to test with a file-based SQLite database named 'test'\n";
+	$setup_options = {
+		'data_storage_product' => {
+			'product_code' => 'SQLite',
+			'is_file_based' => 1,
+		},
+		'data_link_product' => {
+			'product_code' => 'Rosetta::Engine::Generic',
+		},
+		'catalog_instance' => {
+			'file_path' => 'test',
+		},
+	};
+	unlink( "test" ); # remove any existing file from previous run of this test
+}
+
+my $trace_fh = $trace_to_stdout ? \*STDOUT : undef;
+
+my $test_results = eval {
+	return Rosetta::Validator->main( $setup_options, $trace_fh );
+};
+if( my $exception = $@ ) {
+	# errors in test suite itself, or core modules, it seems
+	print "not ok 1 (FAIL) - Rosetta::Validator->main() execution - ".
+		object_to_string( $exception )."\n";
+} else {
+	print "ok 1 (PASS) - Rosetta::Validator->main() execution\n";
 	foreach my $result (@{$test_results}) {
 		print_result( $result );
 	}
-};
-$@ and warn "TESTS ABORTED: ".object_to_string( $@ )."\n"; # errors in test suite itself, or core modules; this one isn't naughty
+}
 
 ######################################################################
 

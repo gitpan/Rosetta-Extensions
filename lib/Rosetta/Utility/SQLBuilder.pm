@@ -3,9 +3,9 @@
 use 5.008001; use utf8; use strict; use warnings;
 
 package Rosetta::Utility::SQLBuilder;
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
-use Rosetta '0.40';
+use Rosetta '0.41';
 
 ######################################################################
 
@@ -19,18 +19,18 @@ Rosetta::Utility::SQLBuilder - Generate ANSI/ISO SQL:2003 and other SQL variants
 
 Perl Version: 5.008001
 
-Standard Modules: I<none>
+Core Modules: I<none>
 
-Nonstandard Modules: 
+Non-Core Modules: 
 
-	Rosetta 0.40
+	Rosetta 0.41
 
 =head1 COPYRIGHT AND LICENSE
 
 This file is part of the Rosetta::Extensions collection of Rosetta feature
 reference implementations.
 
-Rosetta::Extensions is Copyright (c) 1999-2004, Darren R. Duncan.  All rights
+Rosetta::Extensions is Copyright (c) 1999-2005, Darren R. Duncan.  All rights
 reserved.  Address comments, suggestions, and bug reports to
 B<perl@DarrenDuncan.net>, or visit "http://www.DarrenDuncan.net" for more
 information.
@@ -175,11 +175,11 @@ sub new {
 	$builder->{$PROP_PHP_MAP_ARY} = [];
 	$builder->{$PROP_UNWRAP_VIEWS} = 0;
 
-	return( $builder );
+	return $builder;
 }
 
 sub _get_default_data_type_customizations {
-	return( {
+	return {
 		$DT_NUM_INT_8  => 'SMALLINT', # standard; 'TINYINT' for MySQL; 'NUMBER' for Oracle
 		$DT_NUM_INT_16 => 'SMALLINT', # for SQL89, MySQL, Pg; 'NUMBER' for Oracle
 		$DT_NUM_INT_24 => 'INTEGER' , # standard; 'MEDIUMINT' for MySQL; 'NUMBER' for Oracle
@@ -232,7 +232,7 @@ sub _get_default_data_type_customizations {
 		$DT_INTRVL_YM => 'INTERVAL', # still need to add '<interval qualifier>'
 		$DT_INTRVL_DT => 'INTERVAL', # still need to add '<interval qualifier>'
 		$DT_HAS_ENUM_TYPE => 0, # for standard, Oracle use CHECK; MySQL supports ENUM
-	} );
+	};
 }
 
 ######################################################################
@@ -242,7 +242,7 @@ sub positional_host_params {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_POSIT_HPRMS} = $new_value;
 	}
-	return( $builder->{$PROP_POSIT_HPRMS} );
+	return $builder->{$PROP_POSIT_HPRMS};
 }
 
 ######################################################################
@@ -252,7 +252,7 @@ sub delimited_identifiers {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_DELIM_IDENT} = $new_value;
 	}
-	return( $builder->{$PROP_DELIM_IDENT} );
+	return $builder->{$PROP_DELIM_IDENT};
 }
 
 sub identifier_delimiting_char {
@@ -260,14 +260,14 @@ sub identifier_delimiting_char {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_IDENT_QUOTC} = $new_value;
 	}
-	return( $builder->{$PROP_IDENT_QUOTC} );
+	return $builder->{$PROP_IDENT_QUOTC};
 }
 
 ######################################################################
 
 sub get_data_type_customizations {
 	my ($builder) = @_;
-	return( {%{$builder->{$PROP_DATA_TYPES}}} );
+	return {%{$builder->{$PROP_DATA_TYPES}}};
 }
 
 sub set_data_type_customizations {
@@ -292,7 +292,7 @@ sub ora_style_seq_usage {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_ORA_SEQ_USAGE} = $new_value;
 	}
-	return( $builder->{$PROP_ORA_SEQ_USAGE} );
+	return $builder->{$PROP_ORA_SEQ_USAGE};
 }
 
 sub ora_style_routines {
@@ -300,7 +300,7 @@ sub ora_style_routines {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_ORA_ROUTINES} = $new_value;
 	}
-	return( $builder->{$PROP_ORA_ROUTINES} );
+	return $builder->{$PROP_ORA_ROUTINES};
 }
 
 ######################################################################
@@ -310,7 +310,7 @@ sub inlined_subqueries {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_INLINE_SUBQ} = $new_value;
 	}
-	return( $builder->{$PROP_INLINE_SUBQ} );
+	return $builder->{$PROP_INLINE_SUBQ};
 }
 
 ######################################################################
@@ -320,7 +320,7 @@ sub inlined_domains {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_INLINE_DOMAIN} = $new_value;
 	}
-	return( $builder->{$PROP_INLINE_DOMAIN} );
+	return $builder->{$PROP_INLINE_DOMAIN};
 }
 
 ######################################################################
@@ -330,7 +330,7 @@ sub flatten_to_single_schema {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_SINGLE_SCHEMA} = $new_value;
 	}
-	return( $builder->{$PROP_SINGLE_SCHEMA} );
+	return $builder->{$PROP_SINGLE_SCHEMA};
 }
 
 sub single_schema_join_chars {
@@ -338,7 +338,7 @@ sub single_schema_join_chars {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_SS_JOIN_CHARS} = $new_value;
 	}
-	return( $builder->{$PROP_SS_JOIN_CHARS} );
+	return $builder->{$PROP_SS_JOIN_CHARS};
 }
 
 ######################################################################
@@ -348,7 +348,7 @@ sub emulate_subqueries {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_EMUL_SUBQUERY} = $new_value;
 	}
-	return( $builder->{$PROP_EMUL_SUBQUERY} );
+	return $builder->{$PROP_EMUL_SUBQUERY};
 }
 
 sub emulate_compound_queries {
@@ -356,7 +356,7 @@ sub emulate_compound_queries {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_EMUL_COMPOUND} = $new_value;
 	}
-	return( $builder->{$PROP_EMUL_COMPOUND} );
+	return $builder->{$PROP_EMUL_COMPOUND};
 }
 
 sub emulated_query_temp_table_join_chars {
@@ -364,7 +364,7 @@ sub emulated_query_temp_table_join_chars {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_ET_JOIN_CHARS} = $new_value;
 	}
-	return( $builder->{$PROP_ET_JOIN_CHARS} );
+	return $builder->{$PROP_ET_JOIN_CHARS};
 }
 
 ######################################################################
@@ -374,14 +374,14 @@ sub make_host_params {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_MAKE_HPRMS} = $new_value;
 	}
-	return( $builder->{$PROP_MAKE_HPRMS} );
+	return $builder->{$PROP_MAKE_HPRMS};
 }
 
 ######################################################################
 
 sub get_positional_host_param_map_array {
 	my ($builder) = @_;
-	return( [@{$builder->{$PROP_PHP_MAP_ARY}}] );
+	return [@{$builder->{$PROP_PHP_MAP_ARY}}];
 }
 
 sub clear_positional_host_param_map_array {
@@ -396,27 +396,27 @@ sub unwrap_views {
 	if( defined( $new_value ) ) {
 		$builder->{$PROP_UNWRAP_VIEWS} = $new_value;
 	}
-	return( $builder->{$PROP_UNWRAP_VIEWS} );
+	return $builder->{$PROP_UNWRAP_VIEWS};
 }
 
 ######################################################################
 
 sub quote_literal {
 	my ($builder, $literal, $base_type) = @_;
-	return( $base_type eq 'NUM_INT' ? $builder->quote_integer_literal( $literal ) : 
+	return $base_type eq 'NUM_INT' ? $builder->quote_integer_literal( $literal ) : 
 		$base_type eq 'NUM_EXA' ? $builder->quote_numeric_literal( $literal ) : 
 		$base_type eq 'NUM_APR' ? $builder->quote_numeric_literal( $literal ) : 
 		$base_type eq 'STR_BIT' ? $builder->quote_hex_string_literal( $literal ) : 
 		$base_type eq 'STR_CHAR' ? $builder->quote_char_string_literal( $literal ) : 
 		$base_type eq 'BOOLEAN' ? $builder->quote_boolean_literal( $literal ) : 
-		$builder->quote_char_string_literal( $literal ) ); # treat misc/date/interval as char
+		$builder->quote_char_string_literal( $literal ); # treat misc/date/interval as char
 }
 
 sub quote_char_string_literal {
 	my ($builder, $literal) = @_;
 	$literal =~ s|'|''|g;
 	# MySQL also supports escaping of NULs and control characters, like with "\0"
-	return( "'".$literal."'" );
+	return "'".$literal."'";
 	# Input of "Perl" becomes output of "'Perl'".
 	# More work is needed.  See SQL:2003, 02-Foundation, 5.3 <literal> (pg 143).
 	# We need to support both <character string literal> 
@@ -425,32 +425,32 @@ sub quote_char_string_literal {
 
 sub quote_bin_string_literal {
 	my ($builder, $literal) = @_;
-	return( "B'".join( '', map { unpack( 'B8', $_ ) } split( '', $literal ) )."'" );
+	return "B'".join( '', map { unpack( 'B8', $_ ) } split( '', $literal ) )."'";
 	# Input of "Perl" becomes output of "B'01010000011001010111001001101100'".
 }
 
 sub quote_hex_string_literal {
 	my ($builder, $literal) = @_;
-	return( "X'".uc( join( '', map { unpack( 'H2', $_ ) } split( '', $literal ) ) )."'" );
+	return "X'".uc( join( '', map { unpack( 'H2', $_ ) } split( '', $literal ) ) )."'";
 	# Input of "Perl" becomes output of "X'5065726C'".
 }
 
 sub quote_integer_literal {
 	my ($builder, $literal) = @_;
-	return( "'".(int $literal)."'" ); # quotes make MySQL ENUMS work correctly
+	return "'".(int $literal)."'"; # quotes make MySQL ENUMS work correctly
 }
 
 sub quote_numeric_literal {
 	my ($builder, $literal) = @_;
-	return( "'".(0 + $literal)."'" ); # quotes make MySQL ENUMS work correctly
+	return "'".(0 + $literal)."'"; # quotes make MySQL ENUMS work correctly
 }
 
 sub quote_boolean_literal {
 	my ($builder, $literal) = @_;
 	if( $builder->{$PROP_DATA_TYPES}->{$DT_BOOL_USE_NUMS} ) {
-		return( !defined( $literal ) ? 'NULL' : $literal ? 1 : 0 );
+		return !defined( $literal ) ? 'NULL' : $literal ? 1 : 0;
 	} else {
-		return( !defined( $literal ) ? 'UNKNOWN' : $literal ? 'TRUE' : 'FALSE' );
+		return !defined( $literal ) ? 'UNKNOWN' : $literal ? 'TRUE' : 'FALSE';
 	}
 }
 
@@ -469,7 +469,7 @@ sub quote_identifier {
 		$name = uc( $name );
 		$name =~ s|[^A-Z0-9_]||g;
 	}
-	return( $name );
+	return $name;
 	# More work is needed.  
 	# We need to support <regular identifier> and <delimited identifier> 
 	# and <Unicode delimited identifier>; only first two are done now.
@@ -479,7 +479,7 @@ sub build_identifier_element {
 	# This function is for getting the unqualified name of a non-schema object, 
 	# such as a local variable.
 	my ($builder, $object_node) = @_;
-	return( $builder->quote_identifier( $object_node->get_literal_attribute( 'si_name' ) ) );
+	return $builder->quote_identifier( $object_node->get_literal_attribute( 'si_name' ) );
 }
 
 sub build_identifier_host_parameter_name { 
@@ -491,10 +491,10 @@ sub build_identifier_host_parameter_name {
 	if( $builder->{$PROP_POSIT_HPRMS} ) {
 		# Insert positional host parameter/placeholder.
 		push( @{$builder->{$PROP_PHP_MAP_ARY}}, $routine_arg_name );
-		return( '?' ); # DBI-style positional place-holders, and apparently SQL:2003 standard also.
+		return '?'; # DBI-style positional place-holders, and apparently SQL:2003 standard also.
 	} else {
 		# Insert named host parameter/placeholder.
-		return( ':'.$builder->quote_identifier( $routine_arg_name ) );
+		return ':'.$builder->quote_identifier( $routine_arg_name );
 		# This named style is in the SQL:1999 standard, apparently.  Oracle also uses it.
 		# TODO: Add support for @foo (inst of :foo) host param names that SQL-Server, other dbs use.
 	}
@@ -512,15 +512,15 @@ sub build_identifier_schema_obj { # SQL:2003, 6.6 "<identifier chain>" (p183)
 	my $schema_name = $schema_node->get_literal_attribute( 'si_name' );
 	# TODO: support for referencing into other catalogs
 	if( $builder->{$PROP_SINGLE_SCHEMA} ) {
-		return( $builder->quote_identifier( 
-			$schema_name.$builder->{$PROP_SS_JOIN_CHARS}.$object_name ) );
+		return $builder->quote_identifier( 
+			$schema_name.$builder->{$PROP_SS_JOIN_CHARS}.$object_name );
 	} else {
 		if( $for_defn ) {
-			return( $builder->quote_identifier( $object_name ) );
+			return $builder->quote_identifier( $object_name );
 			# Oracle lets you opt prefix schema name when defining; don't know if standard does.
 		} else {
-			return( $builder->quote_identifier( $schema_name ).'.'.
-				$builder->quote_identifier( $object_name ) );
+			return $builder->quote_identifier( $schema_name ).'.'.
+				$builder->quote_identifier( $object_name );
 		}
 	}
 }
@@ -533,12 +533,12 @@ sub build_identifier_view_src_field {
 	if( $builder->{$PROP_UNWRAP_VIEWS} ) {
 		# We are probably in the WHERE/etc clause of an INSERT|UPDATE|DELETE statement.
 		# Assume IUD statement is against one source for now, so unqualified src col names are fine.
-		return( $builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) ) );
+		return $builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) );
 	} else {
 		# We are in a normal SELECT statement or view.
 		# As usual, have fully qualified name to support multiple sources.
-		return( $builder->quote_identifier( $view_src_node->get_literal_attribute( 'si_name' ) ).'.'.
-			$builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) ) );
+		return $builder->quote_identifier( $view_src_node->get_literal_attribute( 'si_name' ) ).'.'.
+			$builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) );
 	}
 }
 
@@ -560,8 +560,8 @@ sub build_identifier_temp_table_for_emul {
 	}
 	$curr_node = $curr_node->get_primary_parent_attribute();
 	push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
-	return( $builder->quote_identifier( 
-		join( $builder->{$PROP_ET_JOIN_CHARS}, @tt_name_parts ) ) );
+	return $builder->quote_identifier( 
+		join( $builder->{$PROP_ET_JOIN_CHARS}, @tt_name_parts ) );
 }
 
 ######################################################################
@@ -570,38 +570,38 @@ sub build_expr {
 	my ($builder, $expr_node) = @_;
 	my $cont_type = $expr_node->get_enumerated_attribute( 'cont_type' );
 	if( $cont_type eq 'LIST' ) {
-		return( '('.join( ', ', map { $builder->build_expr( $_ ) } 
-			@{$expr_node->get_child_nodes()} ).')' );
+		return '('.join( ', ', map { $builder->build_expr( $_ ) } 
+			@{$expr_node->get_child_nodes()} ).')';
 	} else {
 		if( my $valf_literal = $expr_node->get_literal_attribute( 'valf_literal' ) ) {
 			my $scalar_data_type_node = ($expr_node->get_node_ref_attribute( 'scalar_data_type' ) || 
 				$expr_node->get_node_ref_attribute( 'scalar_domain' )->get_node_ref_attribute( 'data_type' ));
-			return( $builder->quote_literal( $valf_literal, 
-				$scalar_data_type_node->get_enumerated_attribute( 'base_type' ) ) );
+			return $builder->quote_literal( $valf_literal, 
+				$scalar_data_type_node->get_enumerated_attribute( 'base_type' ) );
 		} elsif( my $valf_src_field = $expr_node->get_node_ref_attribute( 'valf_src_field' ) ) {
-			return( $builder->build_identifier_view_src_field( $valf_src_field ) );
+			return $builder->build_identifier_view_src_field( $valf_src_field );
 		} elsif( my $valf_result_field = $expr_node->get_node_ref_attribute( 'valf_result_field' ) ) {
-			return( $builder->build_identifier_element( $valf_result_field ) );
+			return $builder->build_identifier_element( $valf_result_field );
 		} elsif( my $valf_p_view_arg = $expr_node->get_node_ref_attribute( 'valf_p_view_arg' ) ) {
-			return( $builder->build_identifier_element( $valf_p_view_arg ) );
+			return $builder->build_identifier_element( $valf_p_view_arg );
 		} elsif( my $routine_arg_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_arg' ) ) {
 			if( $builder->{$PROP_MAKE_HPRMS} ) {
 				# We are currently within an application-side routine, so arg is an app host param.
-				return( $builder->build_identifier_host_parameter_name( $routine_arg_node ) );
+				return $builder->build_identifier_host_parameter_name( $routine_arg_node );
 			} else {
 				# We are *not* within an application-side routine, so arg is a compiled routine var.
-				return( $builder->build_identifier_element( $routine_arg_node ) );
+				return $builder->build_identifier_element( $routine_arg_node );
 			}
 		} elsif( my $routine_var_node = $expr_node->get_node_ref_attribute( 'valf_p_routine_var' ) ) {
-			return( $builder->build_identifier_element( $routine_var_node ) );
+			return $builder->build_identifier_element( $routine_var_node );
 		} elsif( my $sequence_node = $expr_node->get_node_ref_attribute( 'valf_seq_next' ) ) {
-			return( $builder->build_expr_seq_next( $sequence_node ) );
+			return $builder->build_expr_seq_next( $sequence_node );
 		} elsif( $expr_node->get_node_ref_attribute( 'valf_call_cview' ) ) {
-			return( $builder->build_query_subquery( $expr_node ) );
+			return $builder->build_query_subquery( $expr_node );
 		} elsif( $expr_node->get_enumerated_attribute( 'valf_call_sroutine' ) ) {
-			return( $builder->build_expr_call_sroutine( $expr_node ) );
+			return $builder->build_expr_call_sroutine( $expr_node );
 		} elsif( $expr_node->get_node_ref_attribute( 'valf_call_uroutine' ) ) {
-			return( $builder->build_expr_call_uroutine( $expr_node ) );
+			return $builder->build_expr_call_uroutine( $expr_node );
 		} else {}
 	}
 }
@@ -629,8 +629,8 @@ sub build_expr_scalar_data_type_defn { # SQL:2003, 6.1 "<data type>" (p161)
 	my $range_min = $scalar_data_type_node->get_literal_attribute( 'range_min' );
 	my $range_max = $scalar_data_type_node->get_literal_attribute( 'range_max' );
 	my @allowed_values = map { $_->get_literal_attribute( 'si_value' ) } 
-		@{$scalar_data_type_node->get_child_nodes( 'domain_opt' )};
-		# Note: SRT guarantees that domain_opt attrs have a defined value, though could be ''
+		@{$scalar_data_type_node->get_child_nodes( 'scalar_data_type_opt' )};
+		# Note: SRT guarantees that scalar_data_type_opt attrs have a defined value, though could be ''
 
 	my $type_conv = $builder->{$PROP_DATA_TYPES};
 
@@ -784,18 +784,18 @@ sub build_expr_scalar_data_type_defn { # SQL:2003, 6.1 "<data type>" (p161)
 		}
 	}
 
-	return( $sql );
+	return $sql;
 }
 
 sub build_expr_scalar_data_type_or_domain_name { # SQL:2003, 11.4 "<column definition>" (p536)
 	my ($builder, $scalar_dt_or_dom_node) = @_;
 	if( $scalar_dt_or_dom_node->get_node_type() eq 'scalar_data_type' ) {
-		return( $builder->build_expr_scalar_data_type_defn( $scalar_dt_or_dom_node ) ); # <data type>
+		return $builder->build_expr_scalar_data_type_defn( $scalar_dt_or_dom_node ); # <data type>
 	} elsif( $builder->{$PROP_INLINE_DOMAIN} ) {
-		return( $builder->build_expr_scalar_data_type_defn( 
-			$scalar_dt_or_dom_node->get_node_ref_attribute( 'data_type' ) ) ); # <data type>
+		return $builder->build_expr_scalar_data_type_defn( 
+			$scalar_dt_or_dom_node->get_node_ref_attribute( 'data_type' ) ); # <data type>
 	} else {
-		return( $builder->build_identifier_schema_obj( $scalar_dt_or_dom_node ) ); # <domain name>
+		return $builder->build_identifier_schema_obj( $scalar_dt_or_dom_node ); # <domain name>
 	}
 }
 
@@ -843,7 +843,7 @@ sub build_expr_cast_spec { # SQL:2003, 6.12 "<cast specification>" (p201)
 		# Expand this later to support non-standard operators like TO_STR, TO_NUM, TO_DATE, etc.
 	} else {
 		my $cast_target = $builder->build_expr_scalar_data_type_or_domain_name( $cast_target_node );
-		return( 'CAST ('.$cast_operand.' AS '.$cast_target.')' );
+		return 'CAST ('.$cast_operand.' AS '.$cast_target.')';
 	}
 }
 
@@ -853,9 +853,9 @@ sub build_expr_seq_next { # SQL:2003, 6.13 "<next value expression>" (p217)
 	my ($builder, $sequence_node) = @_;
 	my $sequence_name = $builder->build_identifier_schema_obj( $sequence_node );
 	if( $builder->{$PROP_ORA_SEQ_USAGE} ) {
-		return( $sequence_name.".NEXTVAL" );
+		return $sequence_name.".NEXTVAL";
 	} else {
-		return( 'NEXT VALUE FOR '.$sequence_name );
+		return 'NEXT VALUE FOR '.$sequence_name;
 	}
 }
 
@@ -884,51 +884,51 @@ sub build_expr_call_sroutine {
 			$_->get_enumerated_attribute( 'call_sroutine_arg' ) => $_ 
 		) } @{$expr_node->get_child_nodes()};
 	if( $sroutine eq 'CAST' ) {
-		return( $builder->build_expr_cast_spec( $expr_node ) );
+		return $builder->build_expr_cast_spec( $expr_node );
 	} elsif( $sroutine eq 'NOT' ) { #     - a logical 'not', true iif lone arg is false
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( '(NOT '.$factor.')' );
+		return '(NOT '.$factor.')';
 	} elsif( $sroutine eq 'AND' ) { #     - a logical 'and', true iif every arg is true
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( '('.join( ' AND ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return '('.join( ' AND ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'OR' ) { #      - a logical 'or', true iif at least one arg is true
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( '('.join( ' OR ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return '('.join( ' OR ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'XOR' ) { #     - a logical 'xor', true iif 1+ arg true and 1+ arg false
 		# Not implemented yet.
 	} elsif( $sroutine eq 'EQ' ) { #      - true if both args are equal (both args cast same tp)
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' = '.$rhs.')' );
+		return '('.$lhs.' = '.$rhs.')';
 	} elsif( $sroutine eq 'NE' ) { #      - true if both args are unequal (when same data type)
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' <> '.$rhs.')' );
+		return '('.$lhs.' <> '.$rhs.')';
 	} elsif( $sroutine eq 'LT' ) { #      - true if first arg is less than second
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' < '.$rhs.')' );
+		return '('.$lhs.' < '.$rhs.')';
 	} elsif( $sroutine eq 'GT' ) { #      - true if first arg is greater than second
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' > '.$rhs.')' );
+		return '('.$lhs.' > '.$rhs.')';
 	} elsif( $sroutine eq 'LE' ) { #      - true if first arg is less than or equal to second
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' <= '.$rhs.')' );
+		return '('.$lhs.' <= '.$rhs.')';
 	} elsif( $sroutine eq 'GE' ) { #      - true if first arg is greater than or equal to second
 		my $lhs = $builder->build_expr( $child_exprs{'LHS'} );
 		my $rhs = $builder->build_expr( $child_exprs{'RHS'} );
-		return( '('.$lhs.' >= '.$rhs.')' );
+		return '('.$lhs.' >= '.$rhs.')';
 	} elsif( $sroutine eq 'IS_NULL' ) { # - true if only arg is not a null value
 		my $arg = $builder->build_expr( $child_exprs{'ARG'} );
-		return( '('.$arg.' IS NULL)' );
+		return '('.$arg.' IS NULL)';
 	} elsif( $sroutine eq 'NOT_NULL' ) { # - true if only arg is a null value
 		my $arg = $builder->build_expr( $child_exprs{'ARG'} );
-		return( '('.$arg.' IS NOT NULL)' );
+		return '('.$arg.' IS NOT NULL)';
 	} elsif( $sroutine eq 'COALESCE' ) { # - returns first arg which is not null (like Oracle 'NVL')
 		my $terms = $child_exprs{'TERMS'}->get_child_nodes();
-		return( 'COALESCE ('.join( ', ', map { $builder->build_expr( $_ ) } @{$terms} ).')' );
+		return 'COALESCE ('.join( ', ', map { $builder->build_expr( $_ ) } @{$terms} ).')';
 		# Oracle calls this NVL(...).
 	} elsif( $sroutine eq 'SWITCH' ) { #  - a logical switch-case expr (like Oracle \'decode\')
 		# Not implemented yet.  But the CASE/ELSE described at 6.11 (p197) would be used.
@@ -937,21 +937,21 @@ sub build_expr_call_sroutine {
 		my $look_for = $builder->build_expr( $child_exprs{'LOOK_FOR'} );
 		my $prefix = $child_exprs{'FIXED_LEFT'} ? '' : "'%'||";
 		my $postfix = $child_exprs{'FIXED_RIGHT'} ? '' : "||'%'";
-		return( '('.$look_in.' LIKE '.$prefix.$look_for.$postfix.')' );
+		return '('.$look_in.' LIKE '.$prefix.$look_for.$postfix.')';
 	} elsif( $sroutine eq 'ADD' ) { #     - sum result of adding all args as numbers
 		my $terms = $child_exprs{'TERMS'}->get_child_nodes();
-		return( '('.join( ' + ', map { $builder->build_expr( $_ ) } @{$terms} ).')' );
+		return '('.join( ' + ', map { $builder->build_expr( $_ ) } @{$terms} ).')';
 	} elsif( $sroutine eq 'SUB' ) { #     - difference result of subtracting second arg from first
 		my $start = $builder->build_expr( $child_exprs{'START'} );
 		my $remove = $builder->build_expr( $child_exprs{'REMOVE'} );
-		return( '('.$start.' - '.$remove.')' );
+		return '('.$start.' - '.$remove.')';
 	} elsif( $sroutine eq 'MUL' ) { #     - product result of multiplying all arguments
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( '('.join( ' * ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return '('.join( ' * ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'DIV' ) { #     - quotient result of dividing first argument by second
 		my $dividend = $builder->build_expr( $child_exprs{'DIVIDEND'} );
 		my $divisor = $builder->build_expr( $child_exprs{'DIVISOR'} );
-		return( '('.$dividend.' / '.$divisor.')' );
+		return '('.$dividend.' / '.$divisor.')';
 	} elsif( $sroutine eq 'DIVI' ) { #    - integral division of first arg by second
 		my $dividend = $builder->build_expr( $child_exprs{'DIVIDEND'} );
 		my $divisor = $builder->build_expr( $child_exprs{'DIVISOR'} );
@@ -959,39 +959,39 @@ sub build_expr_call_sroutine {
 	} elsif( $sroutine eq 'MOD' ) { #     - modulus of integral division of first arg by second
 		my $dividend = $builder->build_expr( $child_exprs{'DIVIDEND'} );
 		my $divisor = $builder->build_expr( $child_exprs{'DIVISOR'} );
-		return( 'MOD ('.$dividend.', '.$divisor.')' );
+		return 'MOD ('.$dividend.', '.$divisor.')';
 	} elsif( $sroutine eq 'ROUND' ) { #   - rounds first arg to N dec places; N is second arg or 0
 		# Not implemented yet.
 	} elsif( $sroutine eq 'ABS' ) { #     - absolute value of the operand (distance from zero)
 		my $operand = $builder->build_expr( $child_exprs{'OPERAND'} );
-		return( 'ABS ('.$builder->build_expr( $operand ).')' );
+		return 'ABS ('.$builder->build_expr( $operand ).')';
 	} elsif( $sroutine eq 'POWER' ) { #   - raises first arg to the power of the second
 		my $radix = $builder->build_expr( $child_exprs{'RADIX'} );
 		my $exponent = $builder->build_expr( $child_exprs{'EXPONENT'} );
-		return( 'POWER ('.$radix.', '.$exponent.')' );
+		return 'POWER ('.$radix.', '.$exponent.')';
 	} elsif( $sroutine eq 'LOG' ) { #     - logarithm of the first arg on the base of second
 		# Note that SQL:2003 only defines LN(x), the natural logarithm, which is LOG-base-e-power-x;
 		# we will implement LOG ourselves in terms of LN and DIV.
 		my $start = $builder->build_expr( $child_exprs{'START'} );
 		my $radix = $builder->build_expr( $child_exprs{'RADIX'} );
-		return( '(LN('.$start.') / LN('.$radix.'))' );
+		return '(LN('.$start.') / LN('.$radix.'))';
 	} elsif( $sroutine eq 'SCONCAT' ) { # - L.cstr concat of all arguments
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( '('.join( ' || ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return '('.join( ' || ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'SLENGTH' ) { # - length of input string in characters
 		my $source = $builder->build_expr( $child_exprs{'SOURCE'} );
-		return( 'CHAR_LENGTH ('.$source.')' );
+		return 'CHAR_LENGTH ('.$source.')';
 		# OCTET_LENGTH for binary strings not implemented yet.
 	} elsif( $sroutine eq 'SINDEX' ) { #  - pos in arg 1 of arg 2 if present, start at arg 3
 		my $look_for = $builder->build_expr( $child_exprs{'LOOK_FOR'} );
 		my $look_in = $builder->build_expr( $child_exprs{'LOOK_IN'} );
 		my $start_pos = $builder->build_expr( $child_exprs{'START_POS'} );
-		return( 'POSITION ('.$look_for.' IN '.$look_in.')' ); # Arg 3 not implemented yet.
+		return 'POSITION ('.$look_for.' IN '.$look_in.')'; # Arg 3 not implemented yet.
 	} elsif( $sroutine eq 'SUBSTR' ) { #  - substr in arg 1 starting pos arg 2 of length arg 3
 		my $look_in = $builder->build_expr( $child_exprs{'LOOK_IN'} );
 		my $start_pos = $builder->build_expr( $child_exprs{'START_POS'} );
 		my $str_len = $builder->build_expr( $child_exprs{'STR_LEN'} );
-		return( 'SUBSTRING ('.$look_in.' FROM '.$start_pos.($str_len?' FOR '.$str_len:'').')' );
+		return 'SUBSTRING ('.$look_in.' FROM '.$start_pos.($str_len?' FOR '.$str_len:'').')';
 		# Version using SIMILAR to look for regular expressions not implemented yet.
 	} elsif( $sroutine eq 'SREPEAT' ) { # - L.cstr concat arg 1 to self repeated by arg 2 instances
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
@@ -999,7 +999,7 @@ sub build_expr_call_sroutine {
 		# Not implemented yet.
 	} elsif( $sroutine eq 'STRIM' ) { #   - trims leading and trailing whitespace from arg 1
 		my $source = $builder->build_expr( $child_exprs{'SOURCE'} );
-		return( 'TRIM ('.$source.')' );
+		return 'TRIM ('.$source.')';
 		# SQL:2003, p259, says that "TRIM (<src>)" is implicitly equivalent 
 		# to "TRIM (BOTH ' ' FROM <src>)", which behaviour we want.
 		# Other similar functions, such as just trimming left or right, or something other 
@@ -1012,46 +1012,46 @@ sub build_expr_call_sroutine {
 		# Not implemented yet.  Perhaps OVERLAY defined in SQL:2003, 6.29 is what does this.
 	} elsif( $sroutine eq 'LC' ) { #      - lowercases latin chars in a string (SQL:2003 says this is a type of "folding")
 		my $source = $builder->build_expr( $child_exprs{'SOURCE'} );
-		return( 'LOWER ('.$source.')' );
+		return 'LOWER ('.$source.')';
 	} elsif( $sroutine eq 'UC' ) { #      - uppercases latin chars in a string (SQL:2003 says this is a type of "folding")
 		my $source = $builder->build_expr( $child_exprs{'SOURCE'} );
-		return( 'UPPER ('.$source.')' );
+		return 'UPPER ('.$source.')';
 	} elsif( $sroutine eq 'COUNT' ) { #  - aggregate - count of rows a view/cursor can see
-		return( 'COUNT(*)' ); # specified in 10.9
+		return 'COUNT(*)'; # specified in 10.9
 	} elsif( $sroutine eq 'MIN' ) { #    - aggregate - minimum of values in all records in one view col
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'MIN ('.$factor.')' );
+		return 'MIN ('.$factor.')';
 	} elsif( $sroutine eq 'MAX' ) { #    - aggregate - maximum of values in all records in one view col
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'MAX ('.$factor.')' );
+		return 'MAX ('.$factor.')';
 	} elsif( $sroutine eq 'SUM' ) { #    - aggregate - sum of values in all records in one view col
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'SUM ('.$factor.')' );
+		return 'SUM ('.$factor.')';
 	} elsif( $sroutine eq 'AVG' ) { #    - aggregate - average of values in all records in one view col
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'AVG ('.$factor.')' );
+		return 'AVG ('.$factor.')';
 	} elsif( $sroutine eq 'CONCAT' ) { # - aggregate - L.cstr concat of values in all records in one view col
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
 		# Not implemented yet.
 	} elsif( $sroutine eq 'EVERY' ) { #  - aggregate - is true when all rec values in one col are true
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'EVERY ('.$factor.')' );
+		return 'EVERY ('.$factor.')';
 	} elsif( $sroutine eq 'ANY' ) { #    - aggregate - is true when at least one rec value in one col is true
 		# 'SOME' is a synonym for 'ANY', according to MySQL
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'ANY ('.$factor.')' );
+		return 'ANY ('.$factor.')';
 	} elsif( $sroutine eq 'EXISTS' ) { # - aggregate - is true when if there are > 0 rows
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( '(EXISTS '.$factor.')' );
+		return '(EXISTS '.$factor.')';
 	} elsif( $sroutine eq 'GB_SETS' ) { # - olap, use in group-by - produces GROUPING SETS ( sub-exprs )
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( 'GROUPING SETS ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return 'GROUPING SETS ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'GB_RLUP' ) { # - olap, use in group-by - produces ROLLUP ( sub-exprs )
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( 'ROLLUP ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return 'ROLLUP ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} elsif( $sroutine eq 'GB_CUBE' ) { # - olap, use in group-by - produces CUBE ( sub-exprs )
 		my $factors = $child_exprs{'FACTORS'}->get_child_nodes();
-		return( 'CUBE ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')' );
+		return 'CUBE ('.join( ', ', map { $builder->build_expr( $_ ) } @{$factors} ).')';
 	} else {}
 }
 
@@ -1070,18 +1070,18 @@ sub build_expr_call_uroutine {
 	my $arg_val_list = join( ', ', 
 		map { $uroutine_arg_exprs{$_} ? $builder->build_expr( $uroutine_arg_exprs{$_} ) : 'NULL' } 
 		@{$uroutine->get_child_nodes( 'routine_arg' )} );
-	return( $uroutine_name.($arg_val_list ? '('.$arg_val_list.')' : '') );
+	return $uroutine_name.($arg_val_list ? '('.$arg_val_list.')' : '');
 }
 
 ######################################################################
 
 sub build_query_table_expr { # SQL:2003, 7.4 "<table expression>" (p300)
 	my ($builder, $view_node) = @_;
-	return( $builder->build_query_from_clause( $view_node ).
+	return $builder->build_query_from_clause( $view_node ).
 		' '.$builder->build_query_where_clause( $view_node ).
 		' '.$builder->build_query_group_clause( $view_node ).
 		' '.$builder->build_query_having_clause( $view_node ).
-		' '.$builder->build_query_window_clause( $view_node ) );
+		' '.$builder->build_query_window_clause( $view_node );
 }
 
 ######################################################################
@@ -1099,11 +1099,11 @@ sub build_query_from_clause {
 	my @view_join_nodes = $view_node->get_child_nodes( 'view_join' );
 	if( @view_src_nodes == 0 ) {
 		# There are no sources, and hence, no 'from' clause.
-		return( '' );
+		return '';
 	} elsif( $view_type eq 'ALIAS' or @view_src_nodes == 1 ) {
 		# Trivial case: There is exactly one source, aka a single "<table factor>"; 
 		# it can be either a table or named view or subquery.
-		return( 'FROM '.$builder->build_query_table_factor( $view_src_nodes[0] ) );
+		return 'FROM '.$builder->build_query_table_factor( $view_src_nodes[0] );
 	} else {
 		# Complex case: There are 2 or more sources that are being joined.
 		# The first step is to determine the join order, and only afterwards are 
@@ -1138,7 +1138,7 @@ sub build_query_from_clause {
 			}
 			push( @sql_fragment_list, 'ON '.join( ' AND ', @join_on_sql ) );
 		}
-		return( 'FROM '.join( ' ', @sql_fragment_list ) );
+		return 'FROM '.join( ' ', @sql_fragment_list );
 	}
 }
 
@@ -1148,14 +1148,14 @@ sub build_query_table_factor { # SQL:2003, 7.6 "<table reference>" (p303)
 	my $correlation_name = $builder->build_identifier_element( $view_src_node );
 	if( my $table_node = $view_src_node->get_node_ref_attribute( 'match_table' ) ) {
 		my $table_name = $builder->build_identifier_schema_obj( $table_node );
-		return( $table_name.' AS '.$correlation_name );
+		return $table_name.' AS '.$correlation_name;
 	} elsif( my $view_node = $view_src_node->get_node_ref_attribute( 'match_view' ) ) {
 		if( $view_node->get_primary_parent_attribute()->get_node_type() eq 'view' ) {
 			# The view we are matching is a subquery.
 			if( $builder->{$PROP_INLINE_SUBQ} ) {
 				# Embed an anonymous subquery; argument passing is not yet supported.
 				my $query_expression = $builder->build_query_query_expr( $view_node );
-				return( '('.$query_expression.') AS '.$correlation_name );
+				return '('.$query_expression.') AS '.$correlation_name;
 			} else {
 				# Call a named subquery; argument passing is supported.
 				my %src_args_to_view_exprs = 
@@ -1173,19 +1173,19 @@ sub build_query_table_factor { # SQL:2003, 7.6 "<table reference>" (p303)
 					map { $src_args_to_view_exprs{$view_args_to_src_args{$_}} } 
 					@{$view_node->get_child_nodes( 'view_arg' )} );
 				my $view_name = $builder->build_identifier_element( $view_node );
-				return( $view_name.($arg_list?'('.$arg_list.')':'').' AS '.$correlation_name );
+				return $view_name.($arg_list?'('.$arg_list.')':'').' AS '.$correlation_name;
 			}
 		} else { 
 			# The view we are matching is a schema object.
 			my $view_name = $builder->build_identifier_schema_obj( $view_node );
-			return( $view_name.' AS '.$correlation_name );
+			return $view_name.' AS '.$correlation_name;
 		}
 	} else { # the source node is a local variable of some kind
 		my $var_node = ($view_src_node->get_node_ref_attribute( 'match_p_view_arg' ) || 
 			$view_src_node->get_node_ref_attribute( 'match_p_routine_arg' ) || 
 			$view_src_node->get_node_ref_attribute( 'match_p_routine_var' ));
 		my $var_name = $builder->build_identifier_element( $var_node );
-		return( $var_name.' AS '.$correlation_name );
+		return $var_name.' AS '.$correlation_name;
 	}
 }
 
@@ -1198,7 +1198,7 @@ sub build_query_where_clause { # SQL:2003, 7.8 "<where clause>" (p319)
 		map { $builder->build_expr( $_ ) } 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'WHERE' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
-	return( @expr_list ? 'WHERE '.$expr_list[0] : '' );
+	return @expr_list ? 'WHERE '.$expr_list[0] : '';
 }
 
 ######################################################################
@@ -1210,7 +1210,7 @@ sub build_query_group_clause { # SQL:2003, 7.9 "<group by clause>" (p320)
 		map { $builder->build_expr( $_ ) } 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'GROUP' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
-	return( @expr_list ? 'GROUP BY '.join( ', ', @expr_list ) : '' );
+	return @expr_list ? 'GROUP BY '.join( ', ', @expr_list ) : '';
 	# Notes: Within build_expr(): 
 	# <grouping column reference> implemented by COL basic_expr_type,
 	# <ordinary grouping set> and <empty grouping set> implemented by LIST basic_expr_type,
@@ -1229,7 +1229,7 @@ sub build_query_having_clause { # SQL:2003, 7.10 "<having clause>" (p329)
 		map { $builder->build_expr( $_ ) } 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'HAVING' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
-	return( @expr_list ? 'HAVING '.$expr_list[0] : '' );
+	return @expr_list ? 'HAVING '.$expr_list[0] : '';
 }
 
 ######################################################################
@@ -1252,9 +1252,9 @@ sub build_query_window_clause { # SQL:2003, 7.11 "<window clause>" (p331)
 		map { $builder->build_expr( $_ ) } 
 		grep { $_->get_enumerated_attribute( 'view_part' ) eq 'SKIPR' } 
 		@{$view_node->get_child_nodes( 'view_expr' )};
-	return( (@order_list ? 'ORDER BY '.join( ', ', @order_list ) : '').' '.
+	return (@order_list ? 'ORDER BY '.join( ', ', @order_list ) : '').' '.
 		(@maxr_list ? 'LIMIT '.$maxr_list[0] : '').' '.
-		(@skipr_list ? 'OFFSET '.$skipr_list[0] : '') );
+		(@skipr_list ? 'OFFSET '.$skipr_list[0] : '');
 }
 
 ######################################################################
@@ -1269,7 +1269,7 @@ sub build_query_query_spec {
 	my $select_list = $builder->build_query_select_list( $view_node );
 	my $into_clause = $make_into_clause ? $builder->build_query_into_clause( $view_node ) : '';
 	my $table_expression = $builder->build_query_table_expr( $view_node );
-	return( 'SELECT '.$set_quantifier.' '.$select_list.' '.$into_clause.' '.$table_expression );
+	return 'SELECT '.$set_quantifier.' '.$select_list.' '.$into_clause.' '.$table_expression;
 }
 
 ######################################################################
@@ -1282,7 +1282,7 @@ sub build_query_select_list { # SQL:2003, 7.12 "<query specification>" (p341)
 		# Each result column must match a source column exactly.
 		# Every source table/view result column or var field is output, with the same name.
 		# It is assumed/required that the view has the same 'row_data_type' as the source.
-		return( '*' ); # Given the previous line, col names, order should be identical by default.
+		return '*'; # Given the previous line, col names, order should be identical by default.
 	} else { # view_type ne 'ALIAS'
 		# Each result column may come from an arbitrarily complex expression.
 		# We have two statements below instead of one because we want the result cols shown  
@@ -1294,12 +1294,12 @@ sub build_query_select_list { # SQL:2003, 7.12 "<query specification>" (p341)
 		# Note: The build_expr() calls are done below to ensure the arg values are 
 		# defined in the same order they are output; this lets optional insertion 
 		# of positionally determined host params (and their mapping) to work right.
-		return( join( ', ',
+		return join( ', ',
 			map { ($_->get_node_ref_attribute( 'src_field' ) ? 
 					$builder->build_identifier_view_src_field( $_->get_node_ref_attribute( 'src_field' ) ) : 
 				$select_list_exprs{$_} ? $builder->build_expr( $select_list_exprs{$_} ) : 'NULL').
 				' AS '.$builder->build_identifier_element( $_ ) } 
-			@{$view_node->get_child_nodes( 'view_field' )} ) );
+			@{$view_node->get_child_nodes( 'view_field' )} );
 			# Note that the "||'NULL'" thing deals with view_field that don't have any view_expr.
 			# TODO: Note that the 'view_field' Nodes we actually need may be in a parent view 
 			# of the current view; right now we only are looking in the current view.
@@ -1312,9 +1312,9 @@ sub build_query_into_clause {
 	# SQL:2003, 14.3 "<fetch statement>" (p817)
 	# SQL:2003, 14.5 "<select statement: single row>" (p824)
 	my ($builder, $view_node) = @_;
-	return( 'INTO '.$builder->build_identifier_element( 
+	return 'INTO '.$builder->build_identifier_element( 
 		$_->get_node_ref_attribute( 'set_p_routine_arg' ) || 
-		$_->get_node_ref_attribute( 'set_p_routine_var' ) ) ); # select into a ROW variable
+		$_->get_node_ref_attribute( 'set_p_routine_var' ) ); # select into a ROW variable
 }
 
 ######################################################################
@@ -1344,7 +1344,7 @@ sub build_query_query_expr { # SQL:2003, 7.13 "<query expression>" (p351)
 		}
 	}
 	my $query_expression_body = $builder->build_query_query_expr_body( $view_node );
-	return( $with_clause.$query_expression_body );
+	return $with_clause.$query_expression_body;
 	# TODO: SQL:2003, 7.14 "<search or cycle clause>" (p365).
 }
 
@@ -1378,12 +1378,12 @@ sub build_query_query_expr_body { # SQL:2003, 7.13 "<query expression>" (p351)
 			$compound_op eq 'INTERSECTION' ? 'INTERSECT' : 
 			'EXCLUSION'; # $compound_op eq 'EXCLUSION'; this 4th option not in SQL:2003.
 			# TODO: try to emulate 'EXCLUSION' somewhere.
-		return( '('.join( $sql_operator.'_'.$set_quantifier, @operand_list ).')' );
+		return '('.join( $sql_operator.'_'.$set_quantifier, @operand_list ).')';
 		# TODO: deal with engines that don't like "()" bounding compound operations.
 		# TODO: possibly implement <corresponding spec>.
 	} else { # view type ne 'COMPOUND'
 		# Result is a single "SELECT ...", also known as a single "<query specification>".
-		return( $builder->build_query_query_spec( $view_node ) );
+		return $builder->build_query_query_spec( $view_node );
 	}
 }
 
@@ -1395,7 +1395,7 @@ sub build_query_subquery { # SQL:2003, 7.15 "<subquery>" (p370)
 	if( $builder->{$PROP_INLINE_SUBQ} ) {
 		# Embed an anonymous subquery; argument passing is not yet supported.
 		my $query_expression = $builder->build_query_query_expr( $cview );
-		return( '('.$query_expression.')' );
+		return '('.$query_expression.')';
 	} else {
 		# Call a named subquery; argument passing is supported.
 		my $cview_name = $builder->build_identifier_schema_obj( $cview );
@@ -1408,7 +1408,7 @@ sub build_query_subquery { # SQL:2003, 7.15 "<subquery>" (p370)
 		my $arg_val_list = join( ', ', 
 			map { $cview_arg_exprs{$_} ? $builder->build_expr( $cview_arg_exprs{$_} ) : 'NULL' } 
 			@{$cview->get_child_nodes( 'view_arg' )} );
-		return( $cview_name.($arg_val_list ? '('.$arg_val_list.')' : '') );
+		return $cview_name.($arg_val_list ? '('.$arg_val_list.')' : '');
 	}
 	# Note: Direct calls to schema object tables or views is not supported outside of 'FROM'.
 }
@@ -1420,13 +1420,13 @@ sub build_schema_schema_create { # SQL:2003, 11.1 "<schema definition>" (p519)
 	my $schema_name = $builder->build_identifier_element( $schema_node );
 	my $authorization = ''; # TODO: AUTHORIZATION <authorization identifier>
 	# Some other features in 11.1, such as default character set.
-	return( 'CREATE SCHEMA '.$schema_name.' '.$authorization.';' );
+	return 'CREATE SCHEMA '.$schema_name.' '.$authorization.';';
 }
 
 sub build_schema_schema_delete { # SQL:2003, 11.2 "<drop schema statement>" (p522)
 	my ($builder, $schema_node) = @_;
 	my $schema_name = $builder->build_identifier_element( $schema_node );
-	return( 'DROP SCHEMA '.$schema_name.';' );
+	return 'DROP SCHEMA '.$schema_name.';';
 }
 
 ######################################################################
@@ -1436,13 +1436,13 @@ sub build_schema_domain_create { # SQL:2003, 11.24 "<domain definition>" (p603)
 	my $domain_name = $builder->build_identifier_schema_obj( $domain_node, 1 );
 	my $predefined_type = $builder->build_expr_scalar_data_type_defn( $domain_node );
 	# TODO: default clause, domain constraint, collate clause.
-	return( 'CREATE DOMAIN '.$domain_name.' AS '.$predefined_type.';' );
+	return 'CREATE DOMAIN '.$domain_name.' AS '.$predefined_type.';';
 }
 
 sub build_schema_domain_delete { # SQL:2003, 11.30 "<drop domain statement>" (p610)
 	my ($builder, $domain_node) = @_;
 	my $domain_name = $builder->build_identifier_schema_obj( $domain_node, 1 );
-	return( 'DROP DOMAIN '.$domain_name.';' );
+	return 'DROP DOMAIN '.$domain_name.';';
 }
 
 ######################################################################
@@ -1458,20 +1458,20 @@ sub build_schema_sequence_create { # SQL:2003, 11.62 "<sequence generator defini
 	my $cycle = $sequence_node->get_literal_attribute( 'cycle' );
 	my $order = $sequence_node->get_literal_attribute( 'order' );
 	# Note that SQL::Routine guarantees all integer attributes are already valid integers.
-	return( 'CREATE SEQUENCE '.$sequence_name.
+	return 'CREATE SEQUENCE '.$sequence_name.
 		(defined( $increment ) ? ' INCREMENT BY '.$increment : '').
 		(defined( $start_val ) ? ' START WITH '.$start_val : '').
 		(defined( $min_val ) ? ' MINVALUE '.$min_val : ' NO MINVALUE').
 		(defined( $max_val ) ? ' MAXVALUE '.$max_val : ' NO MAXVALUE').
 		($cycle ? ' CYCLE' : ' NO CYCLE').
 		($order ? ' ORDER' : ' NO ORDER'). # standard doesn't mention this one
-		';' );
+		';';
 }
 
 sub build_schema_sequence_delete { # SQL:2003, 11.64 "<drop sequence generator statement>" (p729)
 	my ($builder, $sequence_node) = @_;
 	my $sequence_name = $builder->build_identifier_schema_obj( $sequence_node, 1 );
-	return( 'DROP SEQUENCE '.$sequence_name.';' );
+	return 'DROP SEQUENCE '.$sequence_name.';';
 }
 
 ######################################################################
@@ -1569,14 +1569,14 @@ sub build_schema_table_create {
 		}
 	}
 	my $is_temp = ($table_node->get_primary_parent_attribute()->get_node_type() eq 'application');
-	return( 'CREATE'.($is_temp ? ' TEMPORARY' : '').' TABLE '.$table_name.
-		' ('.join(', ', @table_field_sql, @table_index_sql).');' );
+	return 'CREATE'.($is_temp ? ' TEMPORARY' : '').' TABLE '.$table_name.
+		' ('.join(', ', @table_field_sql, @table_index_sql).');';
 }
 
 sub build_schema_table_delete { # SQL:2003, 11.21 "<drop table statement>" (p587)
 	my ($builder, $table_node) = @_;
 	my $table_name = $builder->build_identifier_schema_obj( $table_node, 1 );
-	return( 'DROP TABLE '.$table_name.';' );
+	return 'DROP TABLE '.$table_name.';';
 }
 
 ######################################################################
@@ -1585,14 +1585,15 @@ sub build_schema_view_create { # SQL:2003, 11.22 "<view definition>" (p590)
 	my ($builder, $view_node) = @_;
 	my $view_name = $builder->build_identifier_schema_obj( $view_node, 1 );
 	my $query_expression = $builder->build_query_query_expr( $view_node );
-	return( 'CREATE VIEW '.$view_name.' AS '.$query_expression.';' );
+	my $is_temp = ($view_node->get_primary_parent_attribute()->get_node_type() eq 'application');
+	return 'CREATE'.($is_temp ? ' TEMPORARY' : '').' VIEW '.$view_name.' AS '.$query_expression.';';
 	# Note: Several interesting looking features are not implemented yet.
 }
 
 sub build_schema_view_delete { # SQL:2003, 11.23 "<drop view statement>" (p600)
 	my ($builder, $view_node) = @_;
 	my $view_name = $builder->build_identifier_schema_obj( $view_node, 1 );
-	return( 'DROP VIEW '.$view_name.';' );
+	return 'DROP VIEW '.$view_name.';';
 }
 
 ######################################################################
@@ -1624,22 +1625,22 @@ sub build_schema_routine_create {
 		# TODO: Implement optional OF <trigger column list>.
 		my @transition_var_names = (); # TODO: NEW/OLD ROW AS <... variable name>
 		my $triggered_sql_statement = $builder->build_dmanip_routine_body( $routine_node, 1 );
-		return( 'CREATE TRIGGER '.$routine_name.' '.
+		return 'CREATE TRIGGER '.$routine_name.' '.
 			$trigger_event_sql.' ON '.$table_or_view_name.
 			(@transition_var_names ? ' REFERENCING '.join( ' ', @transition_var_names ) : '').
 			($for_each_stmt ? ' FOR EACH STATEMENT' : ' FOR EACH ROW').
 			# TODO: WHEN ( <search condition> )
 			($builder->{$PROP_ORA_ROUTINES} ? 'AS ' : '').
 			$triggered_sql_statement.
-			';' );
+			';';
 	} elsif( $routine_type eq 'PROCEDURE' ) {
 		my @param_decl_list = ();
 		# TODO: <routine characteristics> where appropriate.
 		my $routine_body = $builder->build_dmanip_routine_body( $routine_node );
-		return( 'CREATE PROCEDURE '.$routine_name.
+		return 'CREATE PROCEDURE '.$routine_name.
 			(@param_decl_list ? '('.join( ', ', @param_decl_list ).')' : '').
 			($builder->{$PROP_ORA_ROUTINES} ? 'AS ' : '').
-			' '.$routine_body.';' );
+			' '.$routine_body.';';
 	} elsif( $routine_type eq 'FUNCTION' ) {
 		my @param_decl_list = ();
 		# TODO: <routine characteristics> where appropriate.
@@ -1650,11 +1651,11 @@ sub build_schema_routine_create {
 			$routine_node->get_node_ref_attribute( 'return_scalar_data_type' ) || 
 			$routine_node->get_node_ref_attribute( 'return_scalar_domain' ) ) : '';
 			# Other returnable data types are not implemented yet.
-		return( 'CREATE FUNCTION '.$routine_name.
+		return 'CREATE FUNCTION '.$routine_name.
 			(@param_decl_list ? '('.join( ', ', @param_decl_list ).')' : '').
 			' RETURNS '.$return_data_type.
 			($builder->{$PROP_ORA_ROUTINES} ? 'AS ' : '').
-			' '.$routine_body.';' );
+			' '.$routine_body.';';
 	} else {} # $routine_type eq 'BLOCK'
 		# 'BLOCK': no-op; you should call build_dmanip_routine_body() directly instead
 }
@@ -1669,11 +1670,11 @@ sub build_schema_routine_delete {
 	if( $routine_type eq 'PACKAGE' ) {
 		# Not implemented yet.
 	} elsif( $routine_type eq 'TRIGGER' ) {
-		return( 'DROP TRIGGER '.$routine_name.';' );
+		return 'DROP TRIGGER '.$routine_name.';';
 	} elsif( $routine_type eq 'PROCEDURE' ) {
-		return( 'DROP PROCEDURE '.$routine_name.';' );
+		return 'DROP PROCEDURE '.$routine_name.';';
 	} elsif( $routine_type eq 'FUNCTION' ) {
-		return( 'DROP FUNCTION '.$routine_name.';' );
+		return 'DROP FUNCTION '.$routine_name.';';
 	} else {} # $routine_type eq 'BLOCK'; no-op
 }
 
@@ -1682,13 +1683,13 @@ sub build_schema_routine_delete {
 sub build_access_role_create { # SQL:2003, 12.4 "<role definition>" (p743)
 	my ($builder, $role_node) = @_;
 	my $role_name = $builder->build_identifier_element( $role_node );
-	return( 'CREATE ROLE '.$role_name.';' );
+	return 'CREATE ROLE '.$role_name.';';
 }
 
 sub build_access_role_delete { # SQL:2003, 12.6 "<drop role statement>" (p746)
 	my ($builder, $role_node) = @_;
 	my $role_name = $builder->build_identifier_element( $role_node );
-	return( 'DROP ROLE '.$role_name.';' );
+	return 'DROP ROLE '.$role_name.';';
 }
 
 ######################################################################
@@ -1728,11 +1729,11 @@ sub build_access_grant {
 			push( @grant_stmts, 'GRANT '.join( ', ', @object_privs ).
 				' ON '.$object_name.' TO '.$grantee_name.';' );
 		}
-		return( join( '', @grant_stmts ) );
+		return join( '', @grant_stmts );
 	} elsif( $node_type eq 'user' ) {
 		my @role_names = map { $builder->build_identifier_schema_obj( $_ ) } 
 			$grantee_node->get_child_nodes( 'user_role' );
-		return( @role_names ? 'GRANT '.join( ', ', @role_names ).' TO '.$grantee_name.';' : '' );
+		return @role_names ? 'GRANT '.join( ', ', @role_names ).' TO '.$grantee_name.';' : '';
 	} else {}
 }
 
@@ -1752,11 +1753,11 @@ sub build_access_revoke {
 			push( @revoke_stmts, 'REVOKE ALL PRIVILEGES'.
 				' ON '.$object_name.' FROM '.$grantee_name.';' );
 		}
-		return( join( '', @revoke_stmts ) );
+		return join( '', @revoke_stmts );
 	} elsif( $node_type eq 'user' ) {
 		my @role_names = map { $builder->build_identifier_schema_obj( $_ ) } 
 			$grantee_node->get_child_nodes( 'user_role' );
-		return( @role_names ? 'REVOKE '.join( ', ', @role_names ).' FROM '.$grantee_name.';' : '' );
+		return @role_names ? 'REVOKE '.join( ', ', @role_names ).' FROM '.$grantee_name.';' : '';
 	} else {}
 }
 
@@ -1818,14 +1819,14 @@ sub build_dmanip_routine_body {
 		push( @rtn_stmt_sql, $builder->build_dmanip_routine_stmt( $rtn_stmt_node ) );
 	}
 	my $atomic_clause = $is_atomic ? 'ATOMIC ' : '';
-	return( join( ' ', 
+	return join( ' ', 
 		# TODO: proper handling of vars declared within 'BLOCK' routines, when in Oracle syntax.
 		($is_ora_routines ? 'VAR ' : 'BEGIN '.$atomic_clause),
 		@rtn_var_declare_sql,
 		($is_ora_routines ? 'BEGIN '.$atomic_clause : ''),
 		@rtn_stmt_sql,
 		'END;'
-	) );
+	);
 }
 
 ######################################################################
@@ -1834,21 +1835,21 @@ sub build_dmanip_routine_stmt {
 	# SQL:2003, 13.5 "<SQL procedure statement>" (p790)
 	my ($builder, $rtn_stmt_node) = @_;
 	if( my $compound_stmt_routine = $rtn_stmt_node->get_node_ref_attribute( 'block_routine' ) ) {
-		return( $builder->build_dmanip_routine_body( $compound_stmt_routine ) );
+		return $builder->build_dmanip_routine_body( $compound_stmt_routine );
 	} elsif( my $assign_dest_node = $rtn_stmt_node->get_node_ref_attribute( 'assign_dest' ) || 
 			$rtn_stmt_node->get_node_ref_attribute( 'assign_dest' ) ) {
 		my $dest = $builder->build_identifier_element( $assign_dest_node );
 		my $src = $builder->build_expr( 
 			$rtn_stmt_node->get_child_nodes( 'routine_expr' )->[0] );
 		if( $builder->{$PROP_ORA_ROUTINES} ) {
-			return( $dest.' := '.$src.';' );
+			return $dest.' := '.$src.';';
 		} else {
-			return( 'SET '.$dest.' = '.$src.';' );
+			return 'SET '.$dest.' = '.$src.';';
 		}
 	} elsif( $rtn_stmt_node->get_enumerated_attribute( 'call_sroutine' ) ) {
-		return( $builder->build_dmanip_call_sroutine( $rtn_stmt_node ) );
+		return $builder->build_dmanip_call_sroutine( $rtn_stmt_node );
 	} elsif( $rtn_stmt_node->get_node_ref_attribute( 'call_uroutine' ) ) {
-		return( $builder->build_dmanip_call_uroutine( $rtn_stmt_node ) );
+		return $builder->build_dmanip_call_uroutine( $rtn_stmt_node );
 	} else {}
 }
 
@@ -1867,19 +1868,19 @@ sub build_dmanip_call_sroutine {
 		) } @{$rtn_stmt_node->get_child_nodes()};
 	if( $sroutine eq 'RETURN' ) {
 		my $return_value = $builder->build_expr( $child_exprs{'RETURN_VALUE'} );
-		return( 'RETURN '.$return_value ).';'; # no parens in standard
+		return 'RETURN '.$return_value.';'; # no parens in standard
 	} elsif( $sroutine eq 'CURSOR_OPEN' ) { # opens a select cursor for reading from (or performs a select if in right context)
 		my $cursor_cx_expr_node = $child_exprs{'CURSOR_CX'};
 		my $cursor_cx_name = $builder->build_identifier_element( 
 			$cursor_cx_expr_node->get_node_ref_attribute( 'valf_p_routine_arg' ) || 
 			$cursor_cx_expr_node->get_node_ref_attribute( 'valf_p_routine_var' ) );
-		return( 'OPEN '.$cursor_cx_name.';' );
+		return 'OPEN '.$cursor_cx_name.';';
 	} elsif( $sroutine eq 'CURSOR_CLOSE' ) { # closes a select cursor when you're done with it
 		my $cursor_cx_expr_node = $child_exprs{'CURSOR_CX'};
 		my $cursor_cx_name = $builder->build_identifier_element( 
 			$cursor_cx_expr_node->get_node_ref_attribute( 'valf_p_routine_arg' ) || 
 			$cursor_cx_expr_node->get_node_ref_attribute( 'valf_p_routine_var' ) );
-		return( 'CLOSE '.$cursor_cx_name.';' );
+		return 'CLOSE '.$cursor_cx_name.';';
 	} elsif( $sroutine eq 'CURSOR_FETCH' ) { # reads a row from an opened cursor and puts it in a row/list variable
 		my $cursor_cx_expr_node = $child_exprs{'CURSOR_CX'};
 		my $cursor_cx_name = $builder->build_identifier_element( 
@@ -1890,27 +1891,27 @@ sub build_dmanip_call_sroutine {
 			$cursor_cx_expr_node->get_node_ref_attribute( 'valf_p_routine_var' )
 			)->get_node_ref_attribute( 'curs_view' );
 		my $into_clause = $builder->build_query_into_clause( $view_node );
-		return( 'FETCH '.$fetch_orient.' FROM '.$cursor_cx_name.' '.$into_clause.';' );
+		return 'FETCH '.$fetch_orient.' FROM '.$cursor_cx_name.' '.$into_clause.';';
 	} elsif( $sroutine eq 'SELECT' ) { # fetches one row from a table/view and puts it in a row/list variable
 		my $view_node = $child_exprs{'SELECT_DEFN'};
-		return( $builder->build_query_query_spec( $view_node, 1 ).';' );
+		return $builder->build_query_query_spec( $view_node, 1 ).';';
 	} elsif( $sroutine eq 'INSERT' ) { # inserts a row into a table/view
 		my $view_node = $child_exprs{'INSERT_DEFN'};
-		return( $builder->build_dmanip_insert_stmt( $view_node ) );
+		return $builder->build_dmanip_insert_stmt( $view_node );
 	} elsif( $sroutine eq 'UPDATE' ) { # updates a row in a table/view
 		my $view_node = $child_exprs{'UPDATE_DEFN'};
-		return( $builder->build_dmanip_update_stmt( $view_node ) );
+		return $builder->build_dmanip_update_stmt( $view_node );
 	} elsif( $sroutine eq 'DELETE' ) { # deletes a row in a table/view
 		my $view_node = $child_exprs{'DELETE_DEFN'};
-		return( $builder->build_dmanip_delete_stmt( $view_node ) );
+		return $builder->build_dmanip_delete_stmt( $view_node );
 	} elsif( $sroutine eq 'COMMIT' ) { # commits the current transaction, then starts a new one
-		return( 'COMMIT; START TRANSACTION;' );
+		return 'COMMIT; START TRANSACTION;';
 		# Note: According to the MySQL manual: 
 		# For transaction-safe tables, there are actions (other than typing COMMIT) 
 		# that will automatically trigger a COMMIT. Requesting a lock will implicitly 
 		# commit any outstanding queries. 
 	} elsif( $sroutine eq 'ROLLBACK' ) { # rolls back the current transaction, then starts a new one
-		return( 'ROLLBACK; START TRANSACTION;' ); # TODO: rollback to a named save point only
+		return 'ROLLBACK; START TRANSACTION;'; # TODO: rollback to a named save point only
 	} else {} # There are a bunch more that aren't implemented yet.
 }
 
@@ -1921,19 +1922,19 @@ sub build_dmanip_src_schema_object_name {
 	my $view_type = $view_node->get_enumerated_attribute( 'view_type' );
 	my @view_src_nodes = $view_node->get_child_nodes( 'view_src' );
 	if( @view_src_nodes == 0 ) {
-		return( undef ); # No source at all.
+		return; # No source at all.
 	} elsif( $view_type eq 'ALIAS' or @view_src_nodes == 1 ) {
 		my $object_node = $view_src_nodes[0]->get_node_ref_attribute( 'match_table' ) || 
 			$view_src_nodes[0]->get_node_ref_attribute( 'match_view' );
 		if( $object_node->get_primary_parent_attribute()->get_node_type() eq 'schema' ) {
 			# The only source is a schema object, table or named view; use it directly.
-			return( $builder->build_identifier_schema_obj( $view_node ) );
+			return $builder->build_identifier_schema_obj( $view_node );
 		} else {
 			# The only source seems to be a sub-query in "from".
-			return( undef ); # Adding recursion in all necessary places too complicated for now.
+			return; # Adding recursion in all necessary places too complicated for now.
 		}
 	} else { # @view_src_nodes >= 2
-		return( undef ); # Manual updates against multiple sources too complicated for now.
+		return; # Manual updates against multiple sources too complicated for now.
 	}
 }
 
@@ -1958,7 +1959,7 @@ sub build_dmanip_insert_stmt {
 	my $insert_fields_and_src = '('.join( ', ', @set_fields_list ).') '.
 		'VALUES ('.join( ', ', @set_values_list ).')';
 	$builder->{$PROP_UNWRAP_VIEWS} = 0;
-	return( 'INSERT INTO '.$object_name.' '.$insert_fields_and_src.';' );
+	return 'INSERT INTO '.$object_name.' '.$insert_fields_and_src.';';
 }
 
 ######################################################################
@@ -1982,7 +1983,7 @@ sub build_dmanip_update_stmt {
 	my $set_clause = 'SET '.join( ', ', @set_clause_list );
 	my $where_clause = $builder->build_query_where_clause( $view_node );
 	$builder->{$PROP_UNWRAP_VIEWS} = 0;
-	return( 'UPDATE '.$object_name.' '.$set_clause.' '.$where_clause.';' );
+	return 'UPDATE '.$object_name.' '.$set_clause.' '.$where_clause.';';
 }
 
 ######################################################################
@@ -1993,7 +1994,7 @@ sub build_dmanip_delete_stmt { # SQL:2003, 14.7 "<delete statement: searched>" (
 	my $object_name = $builder->build_dmanip_src_schema_object_name( $view_node );
 	my $where_clause = $builder->build_query_where_clause( $view_node );
 	$builder->{$PROP_UNWRAP_VIEWS} = 0;
-	return( 'DELETE FROM '.$object_name.' '.$where_clause.';' );
+	return 'DELETE FROM '.$object_name.' '.$where_clause.';';
 }
 
 ######################################################################
@@ -2014,7 +2015,7 @@ sub build_dmanip_call_uroutine {
 		map { $uroutine_arg_exprs{$_} ? $builder->build_expr( $uroutine_arg_exprs{$_} ) : 'NULL' } 
 		@{$uroutine->get_child_nodes( 'routine_arg' )} );
 	# <call statement> ::= CALL <routine invocation>
-	return( 'CALL '.$uroutine_name.($arg_val_list ? '('.$arg_val_list.')' : '').';' );
+	return 'CALL '.$uroutine_name.($arg_val_list ? '('.$arg_val_list.')' : '').';';
 }
 
 ######################################################################
@@ -2024,7 +2025,7 @@ sub substitute_macros {
 	while( my ($key,$value) = each %{$subs} ) {
 		$str =~ s|\{$key\}|$value|;
 	}
-	return( $str );
+	return $str;
 }
 
 ######################################################################
@@ -2033,7 +2034,7 @@ sub find_scalar_domain_for_row_domain_field {
 	my ($builder, $scalar_data_type_node, $row_domain_node) = @_;
 	my @candidates = grep { $_->get_node_ref_attribute( 'data_type' ) eq $scalar_data_type_node } 
 		@{$row_domain_node->get_primary_parent_attribute()->get_child_nodes( 'scalar_domain' )};
-	return( $candidates[0] || $scalar_data_type_node );
+	return $candidates[0] || $scalar_data_type_node;
 }
 
 ######################################################################

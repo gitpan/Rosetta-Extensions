@@ -3,49 +3,60 @@ CURRENT DOCUMENTATION: TODO
 Preamble: The following will have external coordinated changes in
 Rosetta::Validator so that they can be tested and, where needed, Rosetta and
 SQL::Routine also.  The SQL:2003 standard will continue to be used for
-primary guidance.  Free database products that run under Mac OS X 10.2+ and
+primary guidance.  Free database products that run under Mac OS X 10.3 and
 have a well-maintained DBD module will get the early priority simply because I
 can easily download and install them on my computer.  Other databases will get
 supported when I can get access to them, or someone else does it for me.
 
-r0.14 - Add the necessary functionality to support the creation of tables and
-performance of inserts and trivial selects against tables on a SQLite 3.0.8+
+* Split the Rosetta-Extensions distribution into two distributions,
+Rosetta-Engine-Generic and SQL-Routine-SQLBuilder (or similarly named); the 
+latter's dependency will be SQL-Routine rather than 'Rosetta'.
+
+* Do some serious refactoring / design changing of Generic.pm and Rosetta.pm.
+
+* Add the necessary functionality to support the creation of tables and
+performance of inserts and trivial selects against tables on a SQLite 3.1.6+
 database.  At the same time, a trivial genealogy application demo will be
 released with 'Rosetta' that makes use of this and shows it to be working. 
-Once that's done, announce Rosetta/SQL::Routine Developer Release #2.
+Once that's done, announce Rosetta/SQL::Routine Developer Release #3.
 
-r0.15 - Add support for the same activities, plus all pre-existing abilities,
-against SQLite 2.8.15+ and multiple MySQL versions (5.0.2, 4.1.7, 4.0.22,
+* Add support for the same activities, plus all pre-existing abilities,
+against SQLite 2.8.16+ and multiple MySQL versions (5.0.2, 4.1.10a, 4.0.24,
 3.23.58).  Also add support for talking to multiple versions of the same
 database at once, and for properly auto-detecting SQLite databases.  Also set
 things up so that CATALOG_OPEN will *not* create a new SQLite database if it
 doesn't exist (behave like other dbs).
 
-r0.16 - Start off the Rosetta::Utility::SQLParser module.  Add support to the
+* Start off the Rosetta::Utility::SQLParser module.  Add support to the
 module set for reverse-engineering tables from all database types.  For this
 release, do reverse-engineering manually, since its simple.  Once that's done,
-announce Rosetta/SQL::Routine Developer Release #3.
-
-r0.17 - Make the previous stuff work with PostgreSQL 8.0, and possibly 7.4 also.  
-
-r0.18 - Add support for updates and deletes against tables.  Once that's done,
 announce Rosetta/SQL::Routine Developer Release #4.
 
-r0.19 - Make non-trivial selects work with all database types.  For some
-engines such as MySQL 3.23 and 4.0, this will require some emulation.  Once
-that's done, announce Rosetta/SQL::Routine Developer Release #5.
+* Make the previous stuff work with PostgreSQL 8.0, and possibly 7.4 also.  
 
-r0.20 - Start testing generation and reverse-engineering of more complicated
+* Add support for updates and deletes against tables.  Once that's done,
+announce Rosetta/SQL::Routine Developer Release #5.
+
+* Make non-trivial selects work with all database types.  For some
+engines such as MySQL 3.23 and 4.0, this will require some emulation.  Once
+that's done, announce Rosetta/SQL::Routine Developer Release #6.
+
+* Start testing generation and reverse-engineering of more complicated
 database schema objects like views and routines.  From now on, SQL tokenizing
 will probably be handled by a new dependency, such as Parse::RecDescent, as it
 is a lot more complicated.  Once that's done, announce Rosetta/SQL::Routine
-Developer Release #6.
+Developer Release #7.
 
 * Start working on the schema-to-schema or db-to-db cloning features, and
 the insert-cursor features.
 
 * Update the list of 'standard routines' in SQLBuilder (and SQL::Routine) to
 more closely reflect the SQL:2003 standard, fill other gaps.
+
+* Create a branch of this distribution that is written in Perl 6 but matches
+this mainline distribution feature-wise.  This fork will initially have a
+dependency in Autrijus Tang's "Pugs" distribution, which will be the runtime
+engine that it runs under; later it will run under the "Parrot" engine.
 
 * Start the Rosetta::Emulator::DBI module and try to get it working on
 something simple, like connecting to a database and selecting records.  Maybe
