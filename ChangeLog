@@ -1,3 +1,44 @@
+2004-11-23   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.13.
+
+	* New code file versions are: Generic.pm v0.10, SQLBuilder.pm v0.13.
+
+	* Updated external dependencies on Rosetta to v0.39.
+
+	* Renamed all occurances of the SRT Node attribute 'name' to 'si_name', and
+	occurances of 'unrealized' to 'blueprint', and 'row_field' to
+	'si_row_field', and 'field' to 'si_field'.  Removed the standard_routine
+	value of 'SOME', which is a synonym for 'ANY'.
+
+	* Multiple code changes in Generic.pm:  Updated install_dbi_driver() to
+	just take one "driver hint" scalar argument; the code to extract a choice
+	from two possible Node sources was moved to build_perl_declare_cx_conn(),
+	which invokes it.  Rewrote parts of build_perl_declare_cx_conn() to get 9
+	configuration values from normal Node attributes; the *_opt() Nodes are now
+	only consulted afterwards, and any name conflicts mean the *_opt() have
+	lower precedence.  Now, the name of the database to connect to must be
+	specified in file_path if is_file_based is true; otherwise it comes from
+	local_dsn.  Also updated srtn_catalog_list() concerning file_path.  Also
+	added code comments to srtn_catalog_open().
+
+	* Removed Generic.pm's out-dated SYNOPSIS; it will be rewritten later.
+
+	* Reorganized and expanded the ENGINE CONFIGURATION OPTIONS documentation.
+
+	* Rewrote a large portion of Rosetta_Extensions.t, so it is now more robust
+	and easier to customize.  Also, Rosetta and Rosetta::Validator now handle
+	what some Rosetta_Extensions.t code was required to do, so that code is now
+	shorter.  Also added new distribution file t_setup.pl which can be
+	customized by the user prior to 'make test', so that the tests are
+	successful.  Also updated the Makefile.PL to remind the user to do this.
+	Rosetta_Extensions.t will now look for that file by default, rather than
+	requiring a command line option to tell it where to look, which doesn't
+	work with the more automated test handling of 'make test'.  Also added a
+	section to the INSTALL that says something different.
+
+	* Rewrote parts of the TODO.
+
 2004-11-06   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.12.

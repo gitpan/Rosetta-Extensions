@@ -10,4 +10,5 @@ MANIFEST
 META.yml                                 Module meta-data (added by MakeMaker)
 ReadMe
 t/Rosetta_Extensions.t
+t_setup.pl
 TODO

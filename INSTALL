@@ -43,3 +43,14 @@ Any existing POD is embedded in the module itself.  The Makefile probably
 extracted it for you in the usual manner, or you can run a POD extractor on it 
 yourself to the same effect.  You can also find an HTMLized copy of the POD on 
 CPAN and other public source archives; I link to one copy of it on my web site.
+
+If the automated 'make test' fails and you want to see more details concerning
+what went wrong, but you haven't installed the modules yet, then you can invoke
+the following line to see the the detailed output of the test script, which the
+normal 'make test' usually hides:
+
+	perl -e "use lib 'blib/lib'; do 't/Rosetta_Extensions.t';"
+
+Use the above line when the problem is something other than the modules not
+loading in the first place; non-loading should still display the problem under
+'make test'.

@@ -1,16 +1,20 @@
-#!/usr/bin/perl
+#!perl
 
 use strict; use warnings;
-use Rosetta::Validator '0.38';
-
 BEGIN { $| = 1; }
+use Rosetta::Validator '0.39';
+BEGIN {
+	my $total_possible = Rosetta::Validator->total_possible_tests();
+	print "1..$total_possible\n"; # normal output, used by and hidden by 'make test'
+	warn "1..$total_possible\n"; # lets user see details under 'make test'; might be naughty of me
+}
 
 ######################################################################
 # First ensure the modules to test will compile, are correct versions:
 
-use Rosetta::Engine::Generic '0.09';
-use Rosetta::Engine::Generic::L::en '0.07';
-use Rosetta::Utility::SQLBuilder '0.12';
+use Rosetta::Engine::Generic '0.10';
+use Rosetta::Engine::Generic::L::en '0.06';
+use Rosetta::Utility::SQLBuilder '0.13';
 
 ######################################################################
 # Here are some utility methods:
@@ -29,7 +33,8 @@ sub print_result {
 		" - $feature_key - ".object_to_string( $feature_desc_msg ).
 		($val_error_msg ? ' - '.object_to_string( $val_error_msg ) : '').
 		($eng_error_msg ? ' - '.object_to_string( $eng_error_msg ) : '');
-	print "$result_str\n";
+	print "$result_str\n"; # normal output, used by and hidden by 'make test'
+	warn "$result_str\n"; # lets user see details under 'make test'; might be naughty of me
 }
 
 sub object_to_string {
@@ -50,44 +55,52 @@ sub object_to_string {
 	return( $message ); # if this isn't the right kind of object
 }
 
+sub import_setup_options {
+	my ($setup_filepath) = @_;
+	my $setup_options = do $setup_filepath;
+	unless( ref($setup_options) eq 'HASH' ) {
+		my $err_str = "can't obtain test setup specs from Perl file '".$setup_filepath."'; ";
+		if( defined( $setup_options ) ) {
+			$err_str .= "result is not a hash ref, but '$setup_options'";
+		} elsif( $@ ) {
+			$err_str .= "compilation or runtime error of '$@'";
+		} else {
+			$err_str .= "file system error of '$!.'";
+		}
+		die "$err_str\n";
+	}
+	return( $setup_options );
+}
+
 ######################################################################
 # Now perform the actual tests:
 
 eval {
-	my $total_tests_per_invoke = Rosetta::Validator->total_possible_tests();
-	print "1..$total_tests_per_invoke\n";
-
-	my $config_filepath = shift( @ARGV ); # set from first command line arg; '0' means none
-	my $rh_config = {};
-	if( $config_filepath ) {
-		$rh_config = do $config_filepath;
-		unless( ref($rh_config) eq 'HASH' ) {
-			my $err_str = "can't obtain test configuration specs from Perl file '".$config_filepath."'; ";
-			if( defined( $rh_config ) ) {
-				$err_str .= "result is not a hash ref, but '$rh_config'";
-			} elsif( $@ ) {
-				$err_str .= "compilation or runtime error of '$@'";
-			} else {
-				$err_str .= "file system error of '$!.'";
-			}
-			die "$err_str\n";
-		}
-	}
-
+	my $setup_filepath = shift( @ARGV ) || 't_setup.pl'; # set from first command line arg; '0' means use default name
 	my $trace_to_stdout = shift( @ARGV ) ? 1 : 0; # set from second command line arg
 
-	my $validator = Rosetta::Validator->new();
-	$trace_to_stdout and $validator->set_trace_fh( \*STDOUT );
-	$validator->set_engine_name( 'Rosetta::Engine::Generic' );
-	$validator->set_engine_config_options( $rh_config );
+	my $setup_options = import_setup_options( $setup_filepath );
+	my $trace_fh = $trace_to_stdout ? \*STDOUT : undef;
 
-	$validator->perform_tests();
+	eval {
+		Rosetta->validate_connection_setup_options( $setup_options ); # dies on problem
+	};
+	if( my $exception = $@ ) {
+		unless( $exception->get_message_key() eq 'ROS_I_V_CONN_SETUP_OPTS_NO_ENG_NM' ) {
+			die $exception; # don't trap any other types of exceptions
+		}
+	}
+	$setup_options->{'data_link_product'} ||= {};
+	# Shouldn't be an Engine set already, but if there is, we override it.
+	$setup_options->{'data_link_product'}->{'product_code'} = 'Rosetta::Engine::Generic';
 
-	foreach my $result (@{$validator->get_test_results()}) {
+	my $test_results = Rosetta::Validator->main( $setup_options, $trace_fh );
+
+	foreach my $result (@{$test_results}) {
 		print_result( $result );
 	}
 };
-$@ and print "TESTS ABORTED: ".object_to_string( $@ ); # errors in test suite itself, or core modules
+$@ and warn "TESTS ABORTED: ".object_to_string( $@ )."\n"; # errors in test suite itself, or core modules; this one isn't naughty
 
 ######################################################################
 

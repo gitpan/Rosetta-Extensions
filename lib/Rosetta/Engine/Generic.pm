@@ -10,11 +10,11 @@ package Rosetta::Engine::Generic;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
-use Rosetta '0.38';
+use Rosetta '0.39';
 use DBI '1.45';
-use Rosetta::Utility::SQLBuilder '0.12';
+use Rosetta::Utility::SQLBuilder '0.13';
 
 use base qw( Rosetta::Engine );
 
@@ -28,9 +28,9 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.38
+	Rosetta 0.39
 	DBI 1.45 (highest version recommended)
-	Rosetta::Utility::SQLBuilder 0.12
+	Rosetta::Utility::SQLBuilder 0.13
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -638,7 +638,7 @@ sub encode_perl_identifier {
 
 sub build_perl_identifier_element {
 	my ($engine, $object_node, $debug) = @_;
-	return( $engine->encode_perl_identifier( $object_node->get_literal_attribute( 'name' ), $debug ) );
+	return( $engine->encode_perl_identifier( $object_node->get_literal_attribute( 'si_name' ), $debug ) );
 }
 
 sub build_perl_identifier_rtn {
@@ -680,7 +680,7 @@ sub encode_perl_literal_cstr {
 
 sub build_perl_literal_cstr_from_atvl {
 	my ($engine, $object_node, $attr_name) = @_;
-	$attr_name ||= 'name';
+	$attr_name ||= 'si_name';
 	return( $engine->encode_perl_literal_cstr( $object_node->get_literal_attribute( $attr_name ) ) );
 }
 
@@ -726,15 +726,7 @@ sub clean_up_dbi_driver_string {
 ######################################################################
 
 sub install_dbi_driver {
-	my ($engine, $cat_link_inst_opt_dbi_driver, $cat_inst_node) = @_;
-
-	# First gather the hint we were given for what driver to use.
-	# Try the catalog link instance option first, and the catalog instance data storage product second.
-	my $driver_hint = $cat_link_inst_opt_dbi_driver;
-	unless( $driver_hint ) {
-		my $dsp_node = $cat_inst_node->get_node_ref_attribute( 'product' );
-		$driver_hint = $dsp_node->get_literal_attribute( 'product_code' );
-	}
+	my ($engine, $driver_hint) = @_;
 
 	# This trims the hint to essentials if it is formatted like specific DBI driver strings.
 	$driver_hint = $engine->clean_up_dbi_driver_string( $driver_hint );
@@ -826,35 +818,40 @@ sub build_perl_declare_cx_conn {
 	my $app_inst_node = $app_intf->get_srt_node();
 	my $cat_link_inst_node = undef;
 	foreach my $link (@{$app_inst_node->get_child_nodes( 'catalog_link_instance' )}) {
-		if( $link->get_node_ref_attribute( 'unrealized' ) eq $cat_link_bp_node ) {
+		if( $link->get_node_ref_attribute( 'blueprint' ) eq $cat_link_bp_node ) {
 			$cat_link_inst_node = $link;
 			last;
 		}
 	}
 	my $cat_inst_node = $cat_link_inst_node->get_node_ref_attribute( 'target' );
+	my $dsp_node = $cat_inst_node->get_node_ref_attribute( 'product' );
 
-	my %conn_prep_eco_cin = map { 
-			( $_->get_literal_attribute( 'key' ) => $_->get_literal_attribute( 'value' ) ) 
-		} @{$cat_inst_node->get_child_nodes( 'catalog_instance_opt' )};
-	foreach my $key (qw( local_dsn login_name login_pass )) {
-		if( !defined( $conn_prep_eco_cin{$key} ) and 
-				defined( $cat_inst_node->get_literal_attribute( $key ) ) ) {
-			$conn_prep_eco_cin{$key} = $cat_inst_node->get_literal_attribute( $key );
+	my %conn_prep_eco = (
+		'product_code' => $dsp_node->get_literal_attribute( 'product_code' ),
+		'is_memory_based' => $dsp_node->get_literal_attribute( 'is_memory_based' ),
+		'is_file_based' => $dsp_node->get_literal_attribute( 'is_file_based' ),
+		'is_local_proc' => $dsp_node->get_literal_attribute( 'is_local_proc' ),
+		'is_network_svc' => $dsp_node->get_literal_attribute( 'is_network_svc' ),
+		'file_path' => $cat_inst_node->get_literal_attribute( 'file_path' ),
+		'local_dsn' => $cat_link_inst_node->get_literal_attribute( 'local_dsn' ),
+		'login_name' => $cat_link_inst_node->get_literal_attribute( 'login_name' ),
+		'login_pass' => $cat_link_inst_node->get_literal_attribute( 'login_pass' ),
+	);
+	foreach my $opt_node (@{$cat_inst_node->get_child_nodes( 'catalog_instance_opt' )}, 
+			@{$cat_link_inst_node->get_child_nodes( 'catalog_link_instance_opt' )}) {
+		my $key = $opt_node->get_literal_attribute( 'si_key' );
+		my $value = $opt_node->get_literal_attribute( 'value' );
+		defined( $value ) or next;
+		if( !defined( $conn_prep_eco{$key} ) ) {
+			$conn_prep_eco{$key} = $value;
 		}
 	}
-	my %conn_prep_eco_clin = map { 
-			( $_->get_literal_attribute( 'key' ) => $_->get_literal_attribute( 'value' ) ) 
-		} @{$cat_link_inst_node->get_child_nodes( 'catalog_link_instance_opt' )};
-	foreach my $key (qw( local_dsn login_name login_pass )) {
-		if( !defined( $conn_prep_eco_clin{$key} ) and 
-				defined( $cat_link_inst_node->get_literal_attribute( $key ) ) ) {
-			$conn_prep_eco_clin{$key} = $cat_link_inst_node->get_literal_attribute( $key );
-		}
-	}
-	my %conn_prep_eco = (%conn_prep_eco_clin, %conn_prep_eco_cin); # cat_inst has precedence
 
 	$conn_prep_eco{'dbi_driver'} = # May modifiy DBI driver string; dies if DBI driver won't load.
-		$engine->install_dbi_driver( $conn_prep_eco{'dbi_driver'}, $cat_inst_node );
+		$engine->install_dbi_driver( $conn_prep_eco{'dbi_driver'} || $conn_prep_eco{'product_code'} );
+	$conn_prep_eco{'local_dsn'} = 
+		$conn_prep_eco{'is_file_based'} ? $conn_prep_eco{'file_path'} : # file_path must be set if is_file_based
+		$conn_prep_eco{'local_dsn'}; # used for non-file-based
 
 	my $rtn_var_nm = $engine->build_perl_identifier_rtn_var( $routine_var_node );
 	my $rtn_var_nm_eng = $rtn_var_nm.'_eng';
@@ -898,7 +895,7 @@ sub srtn_catalog_list {
 		$dbi_driver eq 'File' and next; # Skip useless DBI-bundled driver.
 		# If we get here, then the $dbi_driver is something "normal".
 		my $dsp_node = $env_eng->make_srt_node( 'data_storage_product', $container );
-		$dsp_node->set_literal_attribute( 'name', $dbi_driver );
+		$dsp_node->set_literal_attribute( 'si_name', $dbi_driver );
 		$dsp_node->set_literal_attribute( 'product_code', $dbi_driver );
 		if( $dbi_driver eq 'Sponge' ) {
 			$dsp_node->set_literal_attribute( 'is_memory_based', 1 ); # common setting for DBDs
@@ -918,28 +915,32 @@ sub srtn_catalog_list {
 			#dbi:DriverName:database=database_name;host=hostname;port=port 
 			my (undef, undef, $local_dsn) = split( ':', $dbi_data_source );
 			my $cat_bp_node = $env_eng->make_srt_node( 'catalog', $container );
-			$cat_bp_node->set_literal_attribute( 'name', $dbi_data_source );
+			$cat_bp_node->set_literal_attribute( 'si_name', $dbi_data_source );
 			my $cat_link_bp_node = $env_eng->make_child_srt_node( 
 				'catalog_link', $app_bp_node, 'pp_application' );
-			$cat_link_bp_node->set_literal_attribute( 'name', $dbi_data_source );
+			$cat_link_bp_node->set_literal_attribute( 'si_name', $dbi_data_source );
 			$cat_link_bp_node->set_node_ref_attribute( 'target', $cat_bp_node );
 			my $cat_inst_node = $env_eng->make_srt_node( 'catalog_instance', $container );
 			$cat_inst_node->set_node_ref_attribute( 'product', $dsp_node );
 			$cat_inst_node->set_node_ref_attribute( 'blueprint', $cat_bp_node );
-			$cat_inst_node->set_literal_attribute( 'name', $dbi_data_source );
-			if( $dbi_driver eq 'DBM' or $dbi_driver eq 'SQLite' ) {
+			$cat_inst_node->set_literal_attribute( 'si_name', $dbi_data_source );
+			if( $dbi_driver eq 'DBM' or $dbi_driver eq 'SQLite2' or $dbi_driver eq 'SQLite' ) {
+				# is_file_based always uses file_path.
 				my $file_path = $local_dsn;
 				if( $dbi_driver eq 'DBM' ) {
 					$file_path =~ s|f_dir=(.*)|$1|;
 				}
 				$cat_inst_node->set_literal_attribute( 'file_path', $file_path );
 			}
-			$cat_inst_node->set_literal_attribute( 'local_dsn', $local_dsn );
 			my $cat_link_inst_node = $env_eng->make_child_srt_node( 
 				'catalog_link_instance', $app_inst_node, 'pp_application' );
 			$cat_link_inst_node->set_node_ref_attribute( 'product', $dlp_node );
-			$cat_link_inst_node->set_node_ref_attribute( 'unrealized', $cat_link_bp_node );
+			$cat_link_inst_node->set_node_ref_attribute( 'blueprint', $cat_link_bp_node );
 			$cat_link_inst_node->set_node_ref_attribute( 'target', $cat_inst_node );
+			unless( $dbi_driver eq 'DBM' or $dbi_driver eq 'SQLite2' or $dbi_driver eq 'SQLite' ) {
+				# non file-based currently uses local_dsn.
+				$cat_link_inst_node->set_literal_attribute( 'local_dsn', $local_dsn );
+			}
 			push( @cat_link_bp_nodes, $cat_link_bp_node );
 		}
 	}
@@ -971,8 +972,8 @@ sub srtn_catalog_open {
 	defined( $conn_eco{'login_name'} ) or $conn_eco{'login_name'} = $args->{'LOGIN_NAME'};
 	defined( $conn_eco{'login_pass'} ) or $conn_eco{'login_pass'} = $args->{'LOGIN_PASS'};
 
-	my $dbi_driver = $conn_eco{'dbi_driver'};
-	my $local_dsn = $conn_eco{'local_dsn'};
+	my $dbi_driver = $conn_eco{'dbi_driver'}; # product_code merged in by build_perl_declare_cx_conn()
+	my $local_dsn = $conn_eco{'local_dsn'}; # file_path merged in by build_perl_declare_cx_conn()
 	my $login_name = $conn_eco{'login_name'};
 	my $login_pass = $conn_eco{'login_pass'};
 	my $auto_commit = $conn_eco{'auto_commit'};
@@ -1020,145 +1021,7 @@ __END__
 
 =head1 SYNOPSIS
 
-I<Note: This SYNOPSIS is already out of date.  It will be fixed later.>
-
-This is an example showing about the minimum amount of code required to go from
-nothing to an open database connection using Rosetta::Engine::Generic, or any
-standard Rosetta Engine module for that matter (about 40 lines of code).
-
-	# First load our basic requirements, Rosetta and SQL::Routine.
-	use Rosetta;
-
-	eval {
-		# Now create a schema model we will use everywhere.
-		my $model = SQL::Routine->new_container();
-
-		# Now create the model root node representing the app running right now / that we are.
-		my $app_bp = make_a_node( 'application', $model );
-
-		# Define an application instance, for testers, which is the app running right now.
-		my $test_app = make_a_node( 'application_instance', $model );
-		$test_app->set_node_ref_attribute( 'blueprint', $app_bp );
-
-		# Now create a new Rosetta Interface tree that will mediate db access for us.
-		my $application = Rosetta->new_application( $test_app );
-
-		# Now create the model root node that represents a database/catalog we will 
-		# be using (may be several), and a node belonging to said app representing a 
-		# yet-unrealized data connection from the app to the db.
-		my $catalog_bp = make_a_node( 'catalog', $model );
-		my $app_cl = make_a_child_node( 'catalog_link', $app_bp, 'pp_application' );
-		$app_cl->set_literal_attribute( 'name', 'big_data' );
-		$app_cl->set_node_ref_attribute( 'target', $catalog_bp );
-
-		# ... Next, probably (or you can do it later), make and stuff a whole bunch 
-		# of nodes in the model that describe the database/catalog schema and any 
-		# application-stored queries or routines that would run against the db.
-
-		# As an example of the above, a command to 'connect' to the database.
-		my $open_cmd = make_a_child_node( 'command', $app_bp, 'pp_application' );
-		$open_cmd->set_enumerated_attribute( 'standard_routine', 'CATALOG_OPEN' );
-		my $open_cmd_a1 = make_a_child_node( 'command_arg', $open_cmd, 'pp_command' );
-		$open_cmd_a1->set_node_ref_attribute( 'catalog_link', $app_cl );
-
-		# Now create the node that says we will use Rosetta::Engine::Generic as 
-		# our data link product to talk to some database.
-		my $dlp = make_a_node( 'data_link_product', $model );
-		$dlp->set_literal_attribute( 'product_code', 'Rosetta::Engine::Generic' );
-
-		# Now create the model node that says what data storage product we will 
-		# use to implement/host the catalog/database, Oracle 9i in this case.
-		# The string 'Oracle_9_i' is something that Rosetta::Engine::Generic 
-		# and/or its supporting modules specifically recognize.
-		my $dsp = make_a_node( 'data_storage_product', $model );
-		$dsp->set_literal_attribute( 'product_code', 'Oracle_9_i' );
-		$dsp->set_literal_attribute( 'is_network_svc', 1 );
-
-		# Define a database catalog instance, in this case, an Oracle db for testers.
-		my $test_db = make_a_node( 'catalog_instance', $model );
-		$test_db->set_node_ref_attribute( 'product', $dsp );
-		$test_db->set_node_ref_attribute( 'blueprint', $catalog_bp );
-
-		# Now realize the data connection to run from the app instance to the catalog instance.
-		# This is where we say that the app running right now (we) will use Rosetta::Engine::Generic.
-		# Each application instance may only have 1 realization of the same unrealized link.
-		my $test_app_cl = make_a_child_node( 'catalog_link_instance', $test_app, 'pp_application' );
-		$test_app_cl->set_node_ref_attribute( 'product', $dlp );
-		$test_app_cl->set_node_ref_attribute( 'unrealized', $app_cl );
-		$test_app_cl->set_node_ref_attribute( 'target', $test_db );
-		$test_app_cl->set_literal_attribute( 'local_dsn', 'test' );
-
-		# Now tell Rosetta to get ready to open a connection to the catalog/database.
-		# This is when Perl will actually try to "require" Rosetta::Engine::Generic, 
-		# compiling it and DBI, and load the DBD module if possible.
-		my $prepared_open_cmd = $application->prepare( $open_cmd );
-
-		# Now we will actually call DBI->connect() and related stuff; this will cause a new 
-		# Rosetta Interface to be returned that fronts the resulting DBI database handle.
-		# The host params 'login_name/pass' are specifically recognized by the CATALOG_OPEN command.
-		my $db_conn = $prepared_open_cmd->execute( { 'login_name' => 'jane', 'login_pass' => 'pawd' } );
-
-		# ... Now we do whatever else we wanted to do with the database, such as running queries.
-	};
-
-	if( my $message = $@ ) {
-		if( ref($message) and UNIVERSAL::isa( $message, 'Rosetta::Interface' ) ) {
-			$message = $message->get_error_message();
-		}
-		my $translator = Locale::KeyedText->new_translator( 
-			['Rosetta::Engine::Generic::L::','Rosetta::L::','SQL::Routine::L::'], ['en'] );
-		my $user_text = $translator->translate_message( $message );
-		unless( $user_text ) {
-			$user_text = ref($message) ? "internal error: can't find user text for a message: ".
-				$message->as_string()." ".$translator->as_string() : $message;
-		}
-		print "SOMETHING'S WRONG: $user_text\n";
-	}
-
-	sub make_a_node {
-		my ($node_type, $model) = @_;
-		my $node = $model->new_node( $node_type );
-		$node->set_node_id( $model->get_next_free_node_id( $node_type ) );
-		$node->put_in_container( $model );
-		return( $node );
-	}
-
-	sub make_a_child_node {
-		my ($node_type, $pp_node, $pp_attr) = @_;
-		my $container = $pp_node->get_container();
-		my $node = $pp_node->new_node( $node_type );
-		$node->set_node_id( $container->get_next_free_node_id( $node_type ) );
-		$node->put_in_container( $container );
-		$node->set_node_ref_attribute( $pp_attr, $pp_node );
-		$node->set_pp_node_attribute_name( $pp_attr );
-		return( $node );
-	}
-
-If $model were dumped right now as an XML string, after running the actual code
-above, it would look like this:
-
-	<root>
-		<blueprints>
-			<application id="1">
-				<catalog_link id="1" application="1" name="big_data" target="1" />
-				<command id="1" application="1" standard_routine="CATALOG_OPEN">
-					<command_arg id="1" command="1" catalog_link="1" />
-				</command>
-			</application>
-			<catalog id="1" />
-		</blueprints>
-		<tools>
-			<data_link_product id="1" product_code="Rosetta::Engine::Generic" />
-			<data_storage_product id="1" product_code="Oracle_9_i" is_network_svc="1" />
-		</tools>
-		<sites>
-			<application_instance id="1" blueprint="1">
-				<catalog_link_instance id="1" product="1" application="1" unrealized="1" target="1" local_dsn="test" />
-			</application_instance>
-			<catalog_instance id="1" product="1" blueprint="1" />
-		</sites>
-		<circumventions />
-	</root>
+I<The previous SYNOPSIS was removed; a new one will be written later.>
 
 =head1 DESCRIPTION
 
@@ -1320,54 +1183,94 @@ compartments for passing configuration options that are only recognizable to
 the chosen "data link product", which in Rosetta terms is an Engine.  At the
 moment, all Engine Configuration Options are conceptually passed in at "catalog
 link realization time", which is usually when or before a Connection Interface
-is about to be made (by a prepare(CATALOG_OPEN)/execute() combination), or it can be
-when or before an analagous operation (such as a CATALOG_INFO).  When a catalog link
-is realized, a short chain of related SRT Nodes is consulted for their
-attributes or associated child *_opt Nodes, one each of: catalog_link_instance,
-catalog_instance, data_link_product, data_storage_product.  I<The last two may
-be removed from consultation.>  Option values declared later in this list are
+is about to be made (by a prepare(CATALOG_OPEN)/execute() combination), or it
+can be when or before an analagous operation (such as a CATALOG_INFO).  When a
+catalog link is realized, a short chain of related SRT Nodes is consulted for
+their attributes or associated child *_opt Nodes, one each of:
+catalog_link_instance, catalog_instance, data_link_product,
+data_storage_product.  Option values declared later in this list are
 increasingly global, and those declared earlier are increasingly local; any
 time there are name collisions, the most global values have precedence.  The
 SRT Nodes are read at prepare() time.  At execute() time, any ROUTINE_ARGS
 values can fill in blanks, but they can not override any any SRT Node option
 values.  Once a Connection is created, the configuration settings for it can
-not be changed.  Rosetta::Engine::Generic recognizes these options:
+not be changed.
+
+These options are explicitly defined by SQL::Routine and have their own
+dedicated Node attributes; the options listed here have the same names
+(lower-case) as the attribute names in question.  You can provide each of these
+options either in the dedicated attribute or in a *_opt Node having a
+same-named si_key; if both are set, the attribute takes precedence:
 
 =over 4
 
 =item
 
-B<local_dsn> - cstr - This is the locally recognized "data source name" of the
-database/catalog that you want to connect to.  I<Details or other related
-Engine options to be worked out.>
+B<product_code> - cstr - Corresponds to "data_storage_product.product_code".
 
 =item
 
-B<login_name> - cstr - This is a database natively recognized "authorization
-identifier" or "user name" that your application wants to log-in to the
-database as every time it connects.  You typically only set this if the
-user-name is hidden from the application user such as if it is stored in a
-application configuration file, and the user would not be prompted for a
-different one if it fails to work.  If the database user name is provided by
-the user, then you typically pass it as a host parameter value at execute() time
-instead of storing it in the model.  If you do both, then the execute()
-argument will be used instead of the model-provided value.  If you do not
-provide this value either in the model or at execute() time, we will assume the
-database doesn't require authentication, or we will try to log in anonymously.
+B<is_memory_based> - cstr - Corresponds to "data_storage_product.is_memory_based".
 
 =item
 
-B<login_pass> - cstr - This is the database natively recognized "password" that
-you provide along with the B<login_name>.  All parts of the above description
-for the "user" apply to the "pass" also.
+B<is_file_based> - cstr - Corresponds to "data_storage_product.is_file_based".
+
+=item
+
+B<is_local_proc> - cstr - Corresponds to "data_storage_product.is_local_proc".
+
+=item
+
+B<is_network_svc> - cstr - Corresponds to "data_storage_product.is_network_svc".
+
+=item
+
+B<file_path> - cstr - Corresponds to "catalog_instance.file_path".  When using
+a data storage product that is file based, this config option is required; it
+contains the file path for the data storage file.  TODO: server_ip,
+server_domain, server_port.
+
+=item
+
+B<local_dsn> - cstr - Corresponds to "catalog_link_instance.local_dsn".  This
+is the locally recognized "data source name" of the database/catalog that you
+want to connect to.
+
+=item
+
+B<login_name> - cstr - Corresponds to "catalog_link_instance.login_name".  This
+is a database natively recognized "authorization identifier" or "user name"
+that your application wants to log-in to the database as every time it
+connects.  You typically only set this if the user-name is hidden from the
+application user such as if it is stored in a application configuration file,
+and the user would not be prompted for a different one if it fails to work.  If
+the database user name is provided by the user, then you typically pass it as a
+host parameter value at execute() time instead of storing it in the model.  If
+you do not provide this value either in the model or at execute() time, we will
+assume the database doesn't require authentication, or we will try to log in
+anonymously.
+
+=item
+
+B<login_pass> - cstr - Corresponds to "catalog_link_instance.login_pass".  This
+is the database natively recognized "password" that you provide along with the
+B<login_name>.  All parts of the above description for the "name" apply to the
+"pass" also.
+
+=back
+
+Rosetta::Engine::Generic recognizes these options:
+
+=over 4
 
 =item
 
 B<dbi_driver> - cstr - Seeing as Rosetta::Engine::Generic is meant to sit on
 top of DBI and any of its drivers, this option lets you explicitely pick which
 one to use.  If this is not set, then Generic will make an educated guess for
-which DBD module to use based on the "data_storage_product" you chose for the
-database catalog you are connecting to, or it will fall back to DBD::ODBC.
+which DBD module to use based on the B<product_code> engine configuration
+option, or it will fall back to DBD::ODBC if possible.
 
 =item
 

@@ -10,9 +10,9 @@ package Rosetta::Utility::SQLBuilder;
 use 5.006;
 use strict;
 use warnings;
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
-use Rosetta '0.38';
+use Rosetta '0.39';
 
 ######################################################################
 
@@ -24,7 +24,7 @@ Standard Modules: I<none>
 
 Nonstandard Modules: 
 
-	Rosetta 0.38
+	Rosetta 0.39
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -480,7 +480,7 @@ sub build_identifier_element {
 	# This function is for getting the unqualified name of a non-schema object, 
 	# such as a local variable.
 	my ($builder, $object_node) = @_;
-	return( $builder->quote_identifier( $object_node->get_literal_attribute( 'name' ) ) );
+	return( $builder->quote_identifier( $object_node->get_literal_attribute( 'si_name' ) ) );
 }
 
 sub build_identifier_host_parameter_name { 
@@ -488,7 +488,7 @@ sub build_identifier_host_parameter_name {
 	# SQL:2003, 5.4 "Names and identifiers" (pp151,152)
 	# SQL:2003 Foundation page 152 says: <host parameter name> ::= <colon><identifier>
 	my ($builder, $routine_arg_node) = @_;
-	my $routine_arg_name = $routine_arg_node->get_literal_attribute( 'name' );
+	my $routine_arg_name = $routine_arg_node->get_literal_attribute( 'si_name' );
 	if( $builder->{$PROP_POSIT_HPRMS} ) {
 		# Insert positional host parameter/placeholder.
 		push( @{$builder->{$PROP_PHP_MAP_ARY}}, $routine_arg_name );
@@ -508,9 +508,9 @@ sub build_identifier_schema_obj { # SQL:2003, 6.6 "<identifier chain>" (p183)
 	# created or dropped, which may require you to be logged into the 
 	# schema being created in, and schema object names may have to be unqualified.
 	my ($builder, $object_node, $for_defn) = @_;
-	my $object_name = $object_node->get_literal_attribute( 'name' );
+	my $object_name = $object_node->get_literal_attribute( 'si_name' );
 	my $schema_node = $object_node->get_node_ref_attribute( 'pp_schema' );
-	my $schema_name = $schema_node->get_literal_attribute( 'name' );
+	my $schema_name = $schema_node->get_literal_attribute( 'si_name' );
 	# TODO: support for referencing into other catalogs
 	if( $builder->{$PROP_SINGLE_SCHEMA} ) {
 		return( $builder->quote_identifier( 
@@ -534,12 +534,12 @@ sub build_identifier_view_src_field {
 	if( $builder->{$PROP_UNWRAP_VIEWS} ) {
 		# We are probably in the WHERE/etc clause of an INSERT|UPDATE|DELETE statement.
 		# Assume IUD statement is against one source for now, so unqualified src col names are fine.
-		return( $builder->quote_identifier( $match_field_node->get_literal_attribute( 'name' ) ) );
+		return( $builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) ) );
 	} else {
 		# We are in a normal SELECT statement or view.
 		# As usual, have fully qualified name to support multiple sources.
-		return( $builder->quote_identifier( $view_src_node->get_literal_attribute( 'name' ) ).'.'.
-			$builder->quote_identifier( $match_field_node->get_literal_attribute( 'name' ) ) );
+		return( $builder->quote_identifier( $view_src_node->get_literal_attribute( 'si_name' ) ).'.'.
+			$builder->quote_identifier( $match_field_node->get_literal_attribute( 'si_name' ) ) );
 	}
 }
 
@@ -550,18 +550,18 @@ sub build_identifier_temp_table_for_emul {
 	my ($builder, $inner_view_node) = @_;
 	my @tt_name_parts = ();
 	my $curr_node = $inner_view_node;
-	push( @tt_name_parts, $curr_node->get_literal_attribute( 'name' ) );
+	push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	while( $curr_node->get_node_ref_attribute( 'pp_view' ) ) {
 		$curr_node = $curr_node->get_node_ref_attribute( 'pp_view' );
-		push( @tt_name_parts, $curr_node->get_literal_attribute( 'name' ) );
+		push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	}
 	while( $curr_node->get_node_ref_attribute( 'pp_routine' ) ) {
 		$curr_node = $curr_node->get_node_ref_attribute( 'pp_routine' );
-		push( @tt_name_parts, $curr_node->get_literal_attribute( 'name' ) );
+		push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	}
 	$curr_node = $curr_node->get_node_ref_attribute( 'pp_schema' ) || 
 		$curr_node->get_node_ref_attribute( 'pp_application' );
-	push( @tt_name_parts, $curr_node->get_literal_attribute( 'name' ) );
+	push( @tt_name_parts, $curr_node->get_literal_attribute( 'si_name' ) );
 	return( $builder->quote_identifier( 
 		join( $builder->{$PROP_ET_JOIN_CHARS}, @tt_name_parts ) ) );
 }
@@ -630,7 +630,7 @@ sub build_expr_scalar_data_type_defn { # SQL:2003, 6.1 "<data type>" (p161)
 	my $calendar = $scalar_data_type_node->get_enumerated_attribute( 'calendar' );
 	my $range_min = $scalar_data_type_node->get_literal_attribute( 'range_min' );
 	my $range_max = $scalar_data_type_node->get_literal_attribute( 'range_max' );
-	my @allowed_values = map { $_->get_literal_attribute( 'value' ) } 
+	my @allowed_values = map { $_->get_literal_attribute( 'si_value' ) } 
 		@{$scalar_data_type_node->get_child_nodes( 'domain_opt' )};
 		# Note: SRT guarantees that domain_opt attrs have a defined value, though could be ''
 
@@ -1039,11 +1039,9 @@ sub build_expr_call_sroutine {
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
 		return( 'EVERY ('.$factor.')' );
 	} elsif( $sroutine eq 'ANY' ) { #    - aggregate - is true when at least one rec value in one col is true
+		# 'SOME' is a synonym for 'ANY', according to MySQL
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
 		return( 'ANY ('.$factor.')' );
-	} elsif( $sroutine eq 'SOME' ) { #   - aggregate - is true when some rec values are true
-		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
-		return( 'SOME ('.$factor.')' );
 	} elsif( $sroutine eq 'EXISTS' ) { # - aggregate - is true when if there are > 0 rows
 		my $factor = $builder->build_expr( $child_exprs{'FACTOR'} );
 		return( '(EXISTS '.$factor.')' );
@@ -1495,7 +1493,7 @@ sub build_schema_table_create {
 	my @table_field_sql = ();
 	my %col_name_cache = (); # used when making ind defs
 	my %mandatory_field_cache = (); # used when making ind defs
-	my %table_fields_by_row_field = map { ($_->get_node_ref_attribute( 'row_field' ) => $_) } 
+	my %table_fields_by_row_field = map { ($_->get_node_ref_attribute( 'si_row_field' ) => $_) } 
 		@{$table_node->get_child_nodes( 'table_field' )};
 	my $row_data_type_node = ($table_node->get_node_ref_attribute( 'row_data_type' ) || 
 		$table_node->get_node_ref_attribute( 'row_domain' )->get_node_ref_attribute( 'data_type' ));
@@ -1533,7 +1531,7 @@ sub build_schema_table_create {
 		my $index_type = $table_index_node->get_enumerated_attribute( 'index_type' );
 		my @table_index_field_nodes = @{$table_index_node->get_child_nodes( 'table_index_field' )};
 		my $local_field_names_sql = join( ', ', map { 
-				$col_name_cache{$_->get_node_ref_attribute( 'field' )} 
+				$col_name_cache{$_->get_node_ref_attribute( 'si_field' )} 
 			} @table_index_field_nodes );
 		if( $index_type eq 'ATOMIC' ) {
 			push( @table_index_sql, 'INDEX '.$table_index_name.' ('.$local_field_names_sql.')' );
@@ -1547,7 +1545,7 @@ sub build_schema_table_create {
 				# All component columns of a primary key must be mandatory; check for it.
 				$make_a_pk_now = 1;
 				foreach my $table_index_field_node (@table_index_field_nodes) {
-					my $table_field_node = $table_index_field_node->get_node_ref_attribute( 'field' );
+					my $table_field_node = $table_index_field_node->get_node_ref_attribute( 'si_field' );
 					unless( $mandatory_field_cache{$table_field_node} ) {
 						$make_a_pk_now = 0;
 						last;
@@ -2500,7 +2498,7 @@ identifier, pass each piece here separately, and join with "." afterwards.
 	my $sql = $builder->build_identifier_element( $object_node );
 
 This method takes a SQL::Routine::Node object in OBJECT_NODE, extracts its
-'name' attribute, and returns that after passing it to quote_identifier().  The
+'si_name' attribute, and returns that after passing it to quote_identifier().  The
 result is an "unqualified identifier".  This is the most widely used, at least
 internally, build_identifier_*() method; for example, it is used for table/view
 column names in table/view definitions, and for all declaration or use of
