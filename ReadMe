@@ -1,0 +1,104 @@
+                        ROSETTA EXTENSIONS
+----------------------------------------------------------------------
+
+by Darren Duncan <perl@DarrenDuncan.net>
+
+CONTENTS
+
+* Preface
+* Keeping Up To Date
+* Dependencies
+* Support
+* Credits
+* Copyright And License
+
+PREFACE
+	
+See the various POD and PM files in this distribution, and their references,
+starting with Rosetta::Extensions, for all your documentation needs.  The
+distribution also includes a ChangeLog file to say what changes already
+happened, and a TODO file to say what changes have yet to happen.  The file
+INSTALL should help with installation issues.  Read below for how to get support
+or keep up to date, know this distribution's dependencies, or read the credits
+or copyright and license.
+
+KEEPING UP TO DATE
+
+My module set is constantly under development.  You should be able to find the
+newest versions at my website, "http://www.DarrenDuncan.net", on the page called
+"Perl Libraries I Made" (name subject to change).  They can also be found on CPAN
+under the author name of "DUNCAND".  
+
+I am inclined to update the copies on my web site more often, but those
+intermediate versions are more likely to have been tested less, and the modules
+may be updated day by day without increasing the version numbers.  However, the
+copies on CPAN are guaranteed to have unique version numbers when the module has
+changed.
+
+DEPENDENCIES
+
+Perl Version: 5.006
+
+Standard Modules: none
+
+Nonstandard Modules: 
+
+	Locale::KeyedText 0.03 (for error messages)
+	SQL::SyntaxModel 0.16
+	Rosetta 0.14
+	DBI (don't know minimum version yet)
+	various DBI Driver (DBD) modules
+
+SUPPORT
+
+Currently I don't have any support arranged with other people, lists, newsgroups,
+or otherwise.  Feel free to ask me if you can't figure things out on your own, or
+another person whom you know has used this.  I may start a mailing list for 
+support issues later, so that users of my modules can help each other with them.
+
+CREDITS
+
+None besides myself so far.
+
+COPYRIGHT AND LICENSE
+
+This file is part of the Rosetta database abstraction framework.
+
+Rosetta is Copyright (c) 1999-2004, Darren R. Duncan.  All rights reserved.
+Address comments, suggestions, and bug reports to B<perl@DarrenDuncan.net>, or
+visit "http://www.DarrenDuncan.net" for more information.
+
+Rosetta is free software; you can redistribute it and/or modify it under the
+terms of the GNU General Public License (GPL) version 2 as published by the
+Free Software Foundation (http://www.fsf.org/).  You should have received a
+copy of the GPL as part of the Rosetta distribution, in the file named
+"LICENSE"; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place, Suite 330, Boston, MA 02111-1307 USA.
+
+Linking Rosetta statically or dynamically with other modules is making a
+combined work based on Rosetta.  Thus, the terms and conditions of the GPL
+cover the whole combination.  As a special exception, the copyright holders of
+Rosetta give you permission to link Rosetta with independent modules,
+regardless of the license terms of these independent modules, and to copy and
+distribute the resulting combined work under terms of your choice, provided
+that every copy of the combined work is accompanied by a complete copy of the
+source code of Rosetta (the version of Rosetta used to produce the combined
+work), being distributed under the terms of the GPL plus this exception.  An
+independent module is a module which is not derived from or based on Rosetta,
+and which is fully useable when not linked to Rosetta in any form.
+
+Any versions of Rosetta that you modify and distribute must carry prominent
+notices stating that you changed the files and the date of any changes, in
+addition to preserving this original copyright notice and other credits.
+Rosetta is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+
+While it is by no means required, the copyright holders of Rosetta would
+appreciate being informed any time you create a modified version of Rosetta
+that you are willing to distribute, because that is a practical way of
+suggesting improvements to the standard version.
+
+FIN
+
+Share and Enjoy!

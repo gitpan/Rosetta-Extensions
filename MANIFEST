@@ -1,0 +1,13 @@
+ChangeLog
+INSTALL
+lib/Rosetta/Engine/Generic.pm
+lib/Rosetta/Engine/L/en.pm
+lib/Rosetta/Extensions.pod
+lib/Rosetta/Utility/SQLBuilder.pm
+LICENSE
+Makefile.PL
+MANIFEST
+ReadMe
+t/Rosetta_Extensions.t
+TODO
+META.yml                                 Module meta-data (added by MakeMaker)

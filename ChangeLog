@@ -1,0 +1,18 @@
+2004-04-10   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.01.
+
+	* This is the first release of the Rosetta-Extensions distribution.  This
+	distribution is meant to be temporary, collecting a number of related
+	modules during their infancy, as they tend to be updated in tandem; said
+	modules will get split into their own distributions later when they
+	stabilize.  This release features the first versions of the modules
+	Rosetta::Engine::Generic and Rosetta::Utility::SQLBuilder (plus the
+	placeholder Rosetta::Extensions and the localization file
+	Rosetta::Engine::L::en).  These modules are mostly code complete such that
+	you can connect to or disconnect from databases, as well as create or
+	remove tables and sequences in a database.  None of this functionality was
+	tested, though (except for compiling); that is planned for release 0.03.
+	
+	* For more background information, see the "Rosetta" distribution and 
+	everything of mine that it references.

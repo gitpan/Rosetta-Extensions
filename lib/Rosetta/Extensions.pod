@@ -1,0 +1,18 @@
+=head1 NAME
+
+Rosetta::Extensions - Default implementations of fundamental Rosetta features
+
+=head1 DESCRIPTION
+
+This documentation file is a small place-holder to represent the
+"Rosetta-Extensions" distribution on CPAN; its NAME would get used by CPAN as
+the brief descriptive blurb for this distribution among a list of
+distributions.  You should continue by reading the documentation in
+Rosetta::Engine::Generic and Rosetta::Utility::SQLBuilder, which are the most
+complete modules at this time.
+
+=head1 SEE ALSO
+
+Rosetta, SQL::SyntaxModel, and various other modules mentioned in their SEE ALSO.
+
+=cut
