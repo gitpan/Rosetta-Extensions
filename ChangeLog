@@ -1,3 +1,24 @@
+2004-06-21   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 0.04.
+
+	* Updated external dependencies on SQL::SyntaxModel to v0.21.
+
+	* Updated SQLBuilder.pm (now v0.04) extensively such that about 30% of the
+	module was added or rewritten.  Added 8 new SQLBuilder properties, with 6
+	being for general configuration, and 2 for short term state maintenance.
+	Renamed build_expr_identifier_element() to build_identifier_element() and
+	split build_expr_identifier_chain() into 4 more specialized
+	build_identifier_*() methods.  Further added or updated SQL generation code
+	corresponding to these sections of "SQL-2003 Foundation": 6 "Scalar
+	expressions", 7 "Query expressions", 11 "Schema definition and
+	manipulation", 14 "Data manipulation".  All of the above concerned code
+	changes.  Some documentation changes, mostly in the method list; most
+	methods are still not documented.  Following these changes, all of the
+	existing methods in SQLBuilder are now "implemented" (no more empty methods
+	with 'to be done' comments); however, many of them stand to be updated
+	later with new or corrected features.  A few empty methods were removed.
+
 2004-05-12   Darren Duncan <perl@DarrenDuncan.net>
 
 	* Release 0.03.
